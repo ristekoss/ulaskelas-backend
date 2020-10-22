@@ -6,6 +6,12 @@ Final Project's Backend of Mobile Development SIG 2020 using Django Rest Framewo
 
 Follow the [General README](../README.md) first.
 
+### Move to backend directory
+
+```bash
+cd backend
+```
+
 ### Create virtual environment
 
 ```bash
