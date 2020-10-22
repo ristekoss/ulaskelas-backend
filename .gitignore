@@ -1,0 +1,4 @@
+env
+*.pyc
+db.sqlite3
+/static/
