@@ -50,3 +50,37 @@ python manage.py runserver
 ```
 
 Now you can login with superuser you just create on <https://localhost:8000> and interact with API view OR call the API endpoint with [cURL](https://curl.haxx.se/) or [Postman](https://www.postman.com/).
+
+## API Endpoint
+
+- **Sample Endpoint** : `GET /sample/`
+
+You can call this to test if backend is working and API call succeed
+
+```json
+{
+    "message": "API Call succeed on %Y-%m-%d %H:%M:%S"
+}
+```
+
+- **Other Endpoint**: `GET /sample/`
+
+Some description
+
+Parameters:
+
+```json
+{
+    "key": "value",
+    "key": "value",
+}
+```
+
+Return:
+
+```json
+{
+    "key": "value",
+    "key": "value",
+}
+```
