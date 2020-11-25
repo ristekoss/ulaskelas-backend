@@ -1,14 +1,22 @@
 asgiref==3.2.10
 autopep8==1.5.4
+certifi==2020.11.8
+chardet==3.0.4
 dj-database-url==0.5.0
 Django==3.1.2
 django-cors-headers==3.5.0
+django-sso-ui==1.0.0
 djangorestframework==3.12.1
 gunicorn==20.0.4
-# pkg-resources==0.0.0
+idna==2.10
+lxml==4.6.1
 psycopg2==2.8.5
 pycodestyle==2.6.0
+python-cas==1.5.0
 pytz==2020.1
+requests==2.25.0
+six==1.15.0
 sqlparse==0.4.1
 toml==0.10.1
+urllib3==1.26.2
 whitenoise==5.2.0
