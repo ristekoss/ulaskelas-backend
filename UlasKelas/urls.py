@@ -21,5 +21,6 @@ from main import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('sample/', views.sample_api),
+    path('login/', views.login),
     # path('api-auth/', include('rest_framework.urls'))
 ]
