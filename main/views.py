@@ -42,3 +42,20 @@ def login(request):
             'received_ticket': ticket,
             'received_service_url': service_url, }
     return Response(data=data, status=status.HTTP_401_UNAUTHORIZED)
+
+
+@api_view(['GET'])
+# Default permission for any endpoint: permissions.IsAuthenticated
+def restricted_sample_endpoint(request):
+    """
+    Simple sample enpoint that require Token Authorization.
+    """
+    message = 'If you can see this, it means you\'re already logged in.'
+    username = request.user.username
+    if hasattr(request.user, 'profile'):
+        profile = request.user.profile
+    else:
+        profile = None
+    return Response({'message': message,
+                     'username': username,
+                     'profile': profile})
