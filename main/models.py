@@ -58,3 +58,13 @@ class Profile(models.Model):
     study_program = models.CharField(max_length=63)
     educational_program = models.CharField(max_length=63)
     bookmarked_courses = models.ManyToManyField(Course)
+
+class Ulasan(models.Model):
+    """
+    Course review from user
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    course = models.OneToOneField(Course, on_delete=models.CASCADE)
+    year = models.PositiveSmallIntegerField()
+    semester = models.CharField(max_length=10)
+    content = models.TextField()
