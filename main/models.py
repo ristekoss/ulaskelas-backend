@@ -58,3 +58,18 @@ class Profile(models.Model):
     study_program = models.CharField(max_length=63)
     educational_program = models.CharField(max_length=63)
     bookmarked_courses = models.ManyToManyField(Course)
+
+class Review(models.Model):
+    """
+    Course review from user
+    """
+    class Semester(models.IntegerChoices):
+        GANJIL = 1
+        GENAP = 2
+        PENDEK = 3
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    year = models.PositiveSmallIntegerField()
+    semester = models.IntegerField(choices=Semester)
+    content = models.TextField()
