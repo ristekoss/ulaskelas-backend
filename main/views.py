@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from datetime import datetime
 from .utils import process_sso_profile
 from sso.decorators import with_sso_ui
+from django.core import serializers
 
 # Create your views here.
 
@@ -49,6 +50,9 @@ def restricted_sample_endpoint(request):
         profile = request.user.profile
     else:
         profile = None
+    # It's just quick hacks for temporary output.
+    # Should be used Django Rest Serializer instead.
+    profile_json = serializers.serialize('json', [profile])
     return Response({'message': message,
                      'username': username,
-                     'profile': profile})
+                     'profile': profile_json})
