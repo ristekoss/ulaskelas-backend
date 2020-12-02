@@ -4,15 +4,16 @@ from .models import Profile
 
 
 def process_sso_profile(sso_profile):
-    user = User.objects.get(username=sso_profile['username'])
-    if user:
-        return Token.objects.get_or_create(user=user)
-    else:
+    try:
+        user = User.objects.get(username=sso_profile['username'])
+        token, _ = Token.objects.get_or_create(user=user)
+    except User.DoesNotExist:
         user = User(username=sso_profile['username'])
         user.set_unusable_password()
         user.save()
         generate_user_profile(user, sso_profile)
-        return Token.objects.create(user=user)
+        token = Token.objects.create(user=user)
+    return token.key
 
 
 def generate_user_profile(user, sso_profile):
