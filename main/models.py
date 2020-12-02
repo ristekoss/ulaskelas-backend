@@ -59,12 +59,17 @@ class Profile(models.Model):
     educational_program = models.CharField(max_length=63)
     bookmarked_courses = models.ManyToManyField(Course)
 
-class Ulasan(models.Model):
+class Review(models.Model):
     """
     Course review from user
     """
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    course = models.OneToOneField(Course, on_delete=models.CASCADE)
+    class Semester(models.IntegerChoices):
+        GANJIL = 1
+        GENAP = 2
+        PENDEK = 3
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
     year = models.PositiveSmallIntegerField()
-    semester = models.CharField(max_length=10)
+    semester = models.IntegerField(choices=Semester)
     content = models.TextField()
