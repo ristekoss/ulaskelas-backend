@@ -1,10 +1,16 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
 from rest_framework.response import Response
+from rest_framework.filters import SearchFilter
+from rest_framework import viewsets
 from datetime import datetime
 from .utils import process_sso_profile
 from sso.decorators import with_sso_ui
 from django.core import serializers
+from django_auto_prefetching import AutoPrefetchViewSetMixin
+
+from .models import Course
+from .serializers import CourseSerializer
 from django.http.response import HttpResponseRedirect
 
 # Create your views here.
@@ -64,3 +70,12 @@ def restricted_sample_endpoint(request):
     return Response({'message': message,
                      'username': username,
                      'profile': profile_json})
+
+
+
+class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
+    permission_classes = [permissions.AllowAny]  # temprorary
+    serializer_class = CourseSerializer
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
+    queryset = Course.objects.all()

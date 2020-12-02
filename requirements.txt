@@ -20,3 +20,6 @@ sqlparse==0.4.1
 toml==0.10.1
 urllib3==1.26.2
 whitenoise==5.2.0
+drf-spectacular==0.11.1
+django-auto-prefetching==0.1.8
+django-heroku==0.3.1
