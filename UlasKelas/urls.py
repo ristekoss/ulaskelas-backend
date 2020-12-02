@@ -24,5 +24,6 @@ urlpatterns = [
     path('sample-restricted/', views.restricted_sample_endpoint),
     path('login/', views.login),
     path('token/', views.token, name='token'),
+    path('logout/', views.logout),
     # path('api-auth/', include('rest_framework.urls'))
 ]
