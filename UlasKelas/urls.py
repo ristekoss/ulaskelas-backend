@@ -23,5 +23,6 @@ urlpatterns = [
     path('sample/', views.sample_api),
     path('sample-restricted/', views.restricted_sample_endpoint),
     path('login/', views.login),
+    path('token/', views.token, name='token'),
     # path('api-auth/', include('rest_framework.urls'))
 ]

@@ -5,6 +5,7 @@ from datetime import datetime
 from .utils import process_sso_profile
 from sso.decorators import with_sso_ui
 from django.core import serializers
+from django.http.response import HttpResponseRedirect
 
 # Create your views here.
 
@@ -25,17 +26,24 @@ def sample_api(request):
 @with_sso_ui()
 def login(request, sso_profile):
     """
-    Verify SSO UI ticket and service_url.
+    Handle SSO UI login.
     Create a new user & profile if it doesn't exists
-    and return token if ticket is valid.
+    and return token if SSO login suceed.
     """
     if sso_profile is not None:
         token = process_sso_profile(sso_profile)
-        data = {'token': token, 'profile': sso_profile}
-        return Response(data=data)
+        username = sso_profile['username']
+        return HttpResponseRedirect(
+            '/token?token=%s&username=%s' % (token, username))
 
     data = {'message': 'invalid sso'}
     return Response(data=data, status=status.HTTP_401_UNAUTHORIZED)
+
+
+@api_view(['GET'])
+@permission_classes((permissions.AllowAny,))
+def token(request):
+    return Response(request.GET)
 
 
 @api_view(['GET'])
