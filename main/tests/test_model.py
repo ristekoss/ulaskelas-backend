@@ -79,3 +79,63 @@ class CourseModelTest(TestCase):
         self.assertIn(self.course1, course3.prerequisites.all())
         self.assertIn(course2, course3.prerequisites.all())
 
+
+class CourseModelCategoryTest(TestCase):
+    def setUp(self):
+        self.course = Course.objects.create(
+            code="CSCE000001",
+            name="Course 1",
+            aliasName="C1",
+            sks=3,
+            description="This is course 1"
+        )
+
+    def test_can_get_category_without_tag(self):
+        self.assertEqual(self.course.get_category(), '')
+
+    def test_can_get_category_with_mandatory_for_FACULTY_tag(self):
+        NAME = 'Wajib Fakultas'
+        CATEGORY = Tag.Category.FACULTY
+        tag = Tag.objects.create(name=NAME, category=CATEGORY)
+        self.course.tags.add(tag)
+
+        self.assertEqual(self.course.get_category(), CATEGORY)
+
+    def test_can_get_category_with_mandatory_for_CS_tag(self):
+        NAME = 'Wajib Ilmu Komputer'
+        CATEGORY = Tag.Category.CS
+        tag = Tag.objects.create(name=NAME, category=CATEGORY)
+        tag_IS = Tag.objects.create(
+            name='Specialization on IS', category=Tag.Category.IS)
+        self.course.tags.add(tag)
+        self.course.tags.add(tag_IS)
+        self.course.tags.add(tag)
+
+        self.assertEqual(self.course.get_category(), CATEGORY)
+
+    def test_can_get_category_with_mandatory_for_IS_tag(self):
+        NAME = 'Wajib Sistem Informasi'
+        CATEGORY = Tag.Category.IS
+        tag = Tag.objects.create(name=NAME, category=CATEGORY)
+        tag_CS = Tag.objects.create(
+            name='Specialization on CS', category=Tag.Category.CS)
+        self.course.tags.add(tag)
+        self.course.tags.add(tag_CS)
+
+        self.assertEqual(self.course.get_category(), CATEGORY)
+
+    def test_can_get_category_with_specialization_for_CS_tag(self):
+        NAME = 'Kecerdasan Buatan'
+        CATEGORY = Tag.Category.CS
+        tag = Tag.objects.create(name=NAME, category=CATEGORY)
+        self.course.tags.add(tag)
+
+        self.assertEqual(self.course.get_category(), CATEGORY)
+
+    def test_can_get_category_with_specialization_for_IS_tag(self):
+        NAME = 'E-Bisnis'
+        CATEGORY = Tag.Category.IS
+        tag = Tag.objects.create(name=NAME, category=CATEGORY)
+        self.course.tags.add(tag)
+
+        self.assertEqual(self.course.get_category(), CATEGORY)
