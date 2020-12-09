@@ -16,8 +16,9 @@ class Tag(models.Model):
     """
     Tags represents some attributes of course, such as:
     * Study program that are required to take this course
-        - Ilmu Komputer
-        - Sistem Informasi
+        - Wajib Fakultas
+        - Wajib Ilmu Komputer
+        - Wajib Sistem Informasi
     * Areas of interest
         - Arsitektur dan Komputasi Awan
         - Teknologi Perangkat Lunak
@@ -29,6 +30,28 @@ class Tag(models.Model):
     * Others (?)
     """
     name = models.CharField(max_length=31)
+
+    class Category(models.TextChoices):
+        """
+        Category of a tag represents relation of the tag to program study.
+        This category will translated to color code on the frontend.
+
+        Example:
+        Tag Name               | Category | Color
+        -------------------------------------------
+        Wajib Fakultas         | IK-SI    | Yellow
+        Wajib Ilmu Komputer    | IK       | Red
+        Wajib Sistem Informasi | SI       | Blue
+        Kecerdasan Buatan      | IK       | Red
+        E-Bisnis               | SI       | Blue
+        """
+        FACULTY = 'IK-SI'  # Wajib Fakultas
+        CS = 'IK'          # Related to Computer Science / Ilmu Komputer
+        IS = 'SI'          # Related to Information System / Sistem Informasi
+
+    category = models.CharField(
+        max_length=31, choices=Category.choices,
+        default=None, null=True, blank=True)
 
 
 class Course(models.Model):
