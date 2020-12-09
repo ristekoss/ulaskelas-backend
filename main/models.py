@@ -67,6 +67,23 @@ class Course(models.Model):
     curriculums = models.ManyToManyField(Curriculum)
     tags = models.ManyToManyField(Tag)
 
+    def get_category(self):
+        if not self.tags.exists():
+            return ''
+        elif self.tags.filter(name='Wajib Fakultas').exists():
+            return Tag.Category.FACULTY.value
+        elif self.tags.filter(name='Wajib Ilmu Komputer').exists():
+            return Tag.Category.CS.value
+        elif self.tags.filter(name='Wajib Sistem Informasi').exists():
+            return Tag.Category.IS.value
+        # If it's not mandatory course:
+        elif self.tags.filter(category=Tag.Category.CS).exists():
+            return Tag.Category.CS.value
+        elif self.tags.filter(category=Tag.Category.IS).exists():
+            return Tag.Category.IS.value
+        else:
+            return ''
+
 
 class Profile(models.Model):
     """
