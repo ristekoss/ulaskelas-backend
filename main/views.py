@@ -6,6 +6,7 @@ from rest_framework import viewsets
 from datetime import datetime
 from .utils import process_sso_profile
 from sso.decorators import with_sso_ui
+from sso.utils import get_logout_url
 from django.core import serializers
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
@@ -26,6 +27,8 @@ def sample_api(request):
     message = 'API Call succeed on %s' % time
     return Response({'message': message})
 
+
+# TODO: Refactor login, logout, token to viewset
 
 @api_view(['GET', 'POST'])
 @permission_classes((permissions.AllowAny,))
@@ -50,6 +53,15 @@ def login(request, sso_profile):
 @permission_classes((permissions.AllowAny,))
 def token(request):
     return Response(request.GET)
+
+
+@api_view(['GET'])
+def logout(request):
+    """
+    Handle SSO UI logout.
+    Remember that this endpoint require Token Authorization. 
+    """
+    return HttpResponseRedirect(get_logout_url(request))
 
 
 @api_view(['GET'])

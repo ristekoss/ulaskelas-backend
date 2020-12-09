@@ -26,5 +26,6 @@ urlpatterns = [
     path('login/', views.login),
     path('api/', include("main.urls")),
     path('token/', views.token, name='token'),
+    path('logout/', views.logout),
     # path('api-auth/', include('rest_framework.urls'))
 ]
