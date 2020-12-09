@@ -1,5 +1,5 @@
 from django.test import TestCase
-from .models import Course, Curriculum, Tag
+from main.models import Course, Curriculum, Tag
 # Create your tests here.
 
 
@@ -24,6 +24,7 @@ class CourseModelTest(TestCase):
     def test_can_add_curriculums(self):
         self.course1.curriculums.add(self.curr16)
         self.course1.curriculums.add(self.curr19)
+
         self.assertIn(self.curr16, self.course1.curriculums.all())
         self.assertIn(self.curr19, self.course1.curriculums.all())
         self.assertIn(self.course1, self.curr16.course_set.all())
@@ -32,6 +33,7 @@ class CourseModelTest(TestCase):
     def test_can_add_tags(self):
         self.course1.tags.add(self.tag1)
         self.course1.tags.add(self.tag2)
+
         self.assertIn(self.tag1, self.course1.tags.all())
         self.assertIn(self.tag2, self.course1.tags.all())
         self.assertIn(self.course1, self.tag1.course_set.all())
@@ -61,6 +63,7 @@ class CourseModelTest(TestCase):
         )
         course3.prerequisites.add(self.course1)
         course3.prerequisites.add(course2)
+
         # Course 1 and 2 is prequisites of course 3
         self.assertIn(self.course1, course3.prerequisites.all())
         self.assertIn(course2, course3.prerequisites.all())
@@ -75,3 +78,4 @@ class CourseModelTest(TestCase):
         # The previous course 3 prerequisites still exists
         self.assertIn(self.course1, course3.prerequisites.all())
         self.assertIn(course2, course3.prerequisites.all())
+
