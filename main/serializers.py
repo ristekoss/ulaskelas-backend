@@ -23,9 +23,9 @@ class PrerequisiteSerializer(serializers.ModelSerializer):
         fields = ['name', 'category']
 
 class CourseSerializer(serializers.ModelSerializer):
-    prerequisites = PrerequisiteSerializer(read_only=True)
-    curriculums = CurriculumSerializer(read_only=True)
-    tags = TagSerializer(read_only=True)
+    prerequisites = PrerequisiteSerializer(read_only=True, many=True)
+    curriculums = CurriculumSerializer(read_only=True, many=True)
+    tags = TagSerializer(read_only=True, many=True)
     class Meta:
         model = Course
         fields = "__all__"
