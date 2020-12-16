@@ -1,0 +1,215 @@
+[
+    {
+        "model": "main.curriculum",
+        "pk": 1,
+        "fields": {
+            "name": "2019",
+            "year": 2019
+        }
+    },
+    {
+        "model": "main.curriculum",
+        "pk": 2,
+        "fields": {
+            "name": "2016",
+            "year": 2016
+        }
+    },
+    {
+        "model": "main.tag",
+        "pk": 1,
+        "fields": {
+            "name": "Wajib Fakultas",
+            "category": "IK-SI"
+        }
+    },
+    {
+        "model": "main.tag",
+        "pk": 2,
+        "fields": {
+            "name": "Wajib Ilmu Komputer",
+            "category": "IK"
+        }
+    },
+    {
+        "model": "main.tag",
+        "pk": 3,
+        "fields": {
+            "name": "Wajib Sistem Informasi",
+            "category": "SI"
+        }
+    },
+    {
+        "model": "main.tag",
+        "pk": 4,
+        "fields": {
+            "name": "Arsitektur dan Komputasi Awan",
+            "category": "IK"
+        }
+    },
+    {
+        "model": "main.tag",
+        "pk": 5,
+        "fields": {
+            "name": "Teknologi Perangkat Lunak",
+            "category": "IK"
+        }
+    },
+    {
+        "model": "main.tag",
+        "pk": 6,
+        "fields": {
+            "name": "Sains Data & Analitika",
+            "category": "IK"
+        }
+    },
+    {
+        "model": "main.tag",
+        "pk": 7,
+        "fields": {
+            "name": "Kecerdasan Buatan",
+            "category": "IK"
+        }
+    },
+    {
+        "model": "main.tag",
+        "pk": 8,
+        "fields": {
+            "name": "Tata Kelola SI/TI",
+            "category": "SI"
+        }
+    },
+    {
+        "model": "main.tag",
+        "pk": 9,
+        "fields": {
+            "name": "E-Bisnis",
+            "category": "SI"
+        }
+    },
+    {
+        "model": "main.tag",
+        "pk": 10,
+        "fields": {
+            "name": "Ekonomi Digital",
+            "category": "SI"
+        }
+    },
+    {
+        "model": "main.course",
+        "pk": 1,
+        "fields": {
+            "code": "CSGE601020",
+            "name": "Dasar-Dasar Pemrograman 1",
+            "aliasName": "DDP 1",
+            "sks": 4,
+            "description": "",
+            "prerequisites": [],
+            "curriculums": [
+                2
+            ],
+            "tags": [
+                1
+            ]
+        }
+    },
+    {
+        "model": "main.course",
+        "pk": 2,
+        "fields": {
+            "code": "CSGE601021",
+            "name": "Dasar-Dasar Pemrograman 2",
+            "aliasName": "DDP 2",
+            "sks": 4,
+            "description": "",
+            "prerequisites": [
+                1
+            ],
+            "curriculums": [
+                2
+            ],
+            "tags": [
+                1
+            ]
+        }
+    },
+    {
+        "model": "main.course",
+        "pk": 3,
+        "fields": {
+            "code": "CSCM602023",
+            "name": "Pemrograman Lanjut",
+            "aliasName": "AP",
+            "sks": 4,
+            "description": "",
+            "prerequisites": [
+                2
+            ],
+            "curriculums": [
+                2
+            ],
+            "tags": [
+                2
+            ]
+        }
+    },
+    {
+        "model": "main.course",
+        "pk": 4,
+        "fields": {
+            "code": "CSGE602022",
+            "name": "Perancangan dan Pemrograman Web",
+            "aliasName": "PPW",
+            "sks": 3,
+            "description": "",
+            "prerequisites": [
+                1
+            ],
+            "curriculums": [
+                2
+            ],
+            "tags": [
+                1
+            ]
+        }
+    },
+    {
+        "model": "main.course",
+        "pk": 5,
+        "fields": {
+            "code": "CSIM603124",
+            "name": "Sistem Interaksi",
+            "aliasName": "Sister",
+            "sks": 3,
+            "description": "",
+            "prerequisites": [
+                4
+            ],
+            "curriculums": [
+                2
+            ],
+            "tags": [
+                3,
+                5,
+                6
+            ]
+        }
+    },
+    {
+        "model": "main.course",
+        "pk": 6,
+        "fields": {
+            "code": "CSIE604284",
+            "name": "Analitika Media Sosial",
+            "aliasName": "Anamedsos",
+            "sks": 3,
+            "description": "",
+            "prerequisites": [],
+            "curriculums": [],
+            "tags": [
+                9,
+                10
+            ]
+        }
+    }
+]

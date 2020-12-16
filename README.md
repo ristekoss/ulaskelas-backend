@@ -38,8 +38,19 @@ python manage.py migrate
 
 <!-- TODO: 
 ### Set up database from scratch
-### Use populated database
  -->
+
+#### Use populated database
+
+```bash
+python manage.py loaddata db.json
+```
+
+You might want to delete `db.sqlite3` if you already have data from main models.
+
+OR
+
+Rename `db_dump.sqlite3` to `db.sqlite3` if things not worked out and you're too lazy.
 
 ### Run app
 
@@ -53,34 +64,4 @@ Now you can login with superuser you just create on <https://localhost:8000> and
 
 ## API Endpoint
 
-- **Sample Endpoint** : `GET /sample/`
-
-You can call this to test if backend is working and API call succeed
-
-```json
-{
-    "message": "API Call succeed on %Y-%m-%d %H:%M:%S"
-}
-```
-
-- **Other Endpoint**: `GET /sample/`
-
-Some description
-
-Parameters:
-
-```json
-{
-    "key": "value",
-    "key": "value",
-}
-```
-
-Return:
-
-```json
-{
-    "key": "value",
-    "key": "value",
-}
-```
+Visit [/api/schema/swagger/](http://127.0.0.1:8000/api/schema/swagger/)
