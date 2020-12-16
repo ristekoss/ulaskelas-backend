@@ -16,8 +16,9 @@ class Tag(models.Model):
     """
     Tags represents some attributes of course, such as:
     * Study program that are required to take this course
-        - Ilmu Komputer
-        - Sistem Informasi
+        - Wajib Fakultas
+        - Wajib Ilmu Komputer
+        - Wajib Sistem Informasi
     * Areas of interest
         - Arsitektur dan Komputasi Awan
         - Teknologi Perangkat Lunak
@@ -29,6 +30,28 @@ class Tag(models.Model):
     * Others (?)
     """
     name = models.CharField(max_length=31)
+
+    class Category(models.TextChoices):
+        """
+        Category of a tag represents relation of the tag to program study.
+        This category will translated to color code on the frontend.
+
+        Example:
+        Tag Name               | Category | Color
+        -------------------------------------------
+        Wajib Fakultas         | IK-SI    | Yellow
+        Wajib Ilmu Komputer    | IK       | Red
+        Wajib Sistem Informasi | SI       | Blue
+        Kecerdasan Buatan      | IK       | Red
+        E-Bisnis               | SI       | Blue
+        """
+        FACULTY = 'IK-SI'  # Wajib Fakultas
+        CS = 'IK'          # Related to Computer Science / Ilmu Komputer
+        IS = 'SI'          # Related to Information System / Sistem Informasi
+
+    category = models.CharField(
+        max_length=31, choices=Category.choices,
+        default=None, null=True, blank=True)
 
 
 class Course(models.Model):
@@ -43,6 +66,23 @@ class Course(models.Model):
     prerequisites = models.ManyToManyField("self", symmetrical=False)
     curriculums = models.ManyToManyField(Curriculum)
     tags = models.ManyToManyField(Tag)
+
+    def get_category(self):
+        if not self.tags.exists():
+            return ''
+        elif self.tags.filter(name='Wajib Fakultas').exists():
+            return Tag.Category.FACULTY.value
+        elif self.tags.filter(name='Wajib Ilmu Komputer').exists():
+            return Tag.Category.CS.value
+        elif self.tags.filter(name='Wajib Sistem Informasi').exists():
+            return Tag.Category.IS.value
+        # If it's not mandatory course:
+        elif self.tags.filter(category=Tag.Category.CS).exists():
+            return Tag.Category.CS.value
+        elif self.tags.filter(category=Tag.Category.IS).exists():
+            return Tag.Category.IS.value
+        else:
+            return ''
 
 
 class Profile(models.Model):

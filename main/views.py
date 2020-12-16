@@ -1,10 +1,17 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
 from rest_framework.response import Response
+from rest_framework.filters import SearchFilter
+from rest_framework import viewsets
 from datetime import datetime
 from .utils import process_sso_profile
 from sso.decorators import with_sso_ui
+from sso.utils import get_logout_url
 from django.core import serializers
+from django_auto_prefetching import AutoPrefetchViewSetMixin
+
+from .models import Course
+from .serializers import CourseSerializer
 from django.http.response import HttpResponseRedirect
 
 # Create your views here.
@@ -20,6 +27,8 @@ def sample_api(request):
     message = 'API Call succeed on %s' % time
     return Response({'message': message})
 
+
+# TODO: Refactor login, logout, token to viewset
 
 @api_view(['GET', 'POST'])
 @permission_classes((permissions.AllowAny,))
@@ -47,6 +56,15 @@ def token(request):
 
 
 @api_view(['GET'])
+def logout(request):
+    """
+    Handle SSO UI logout.
+    Remember that this endpoint require Token Authorization. 
+    """
+    return HttpResponseRedirect(get_logout_url(request))
+
+
+@api_view(['GET'])
 # Default permission for any endpoint: permissions.IsAuthenticated
 def restricted_sample_endpoint(request):
     """
@@ -64,3 +82,12 @@ def restricted_sample_endpoint(request):
     return Response({'message': message,
                      'username': username,
                      'profile': profile_json})
+
+
+
+class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
+    permission_classes = [permissions.AllowAny]  # temprorary
+    serializer_class = CourseSerializer
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
+    queryset = Course.objects.all()
