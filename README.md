@@ -65,3 +65,24 @@ Now you can login with superuser you just create on <https://localhost:8000> and
 ## API Endpoint
 
 Visit [/api/schema/swagger/](http://127.0.0.1:8000/api/schema/swagger/)
+
+-------
+## Documentation from 2020
+
+### Feature #1
+This is a feature to xxx, the code is located on `xxx.py`. 
+```
+print('hello world')
+```
+Intended use :
+- x
+- x
+
+### Feature #1
+This is a feature to xxx, the code is located on `xxx.py`. 
+```
+print('hello world')
+```
+Intended use :
+- x
+- x
