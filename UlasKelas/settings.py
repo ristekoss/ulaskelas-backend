@@ -27,7 +27,7 @@ SECRET_KEY = '-zrv7c0@3$c6#7e#ll!z94oy0=-2-e0eqvy4%so=!z3zw6k=da'
 DEBUG = True
 
 # TODO: Input prodcution URL
-ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1','192.168.100.4']
 
 # Application definition
 
