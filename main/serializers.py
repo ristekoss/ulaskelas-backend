@@ -3,12 +3,6 @@ from rest_framework import serializers
 from .models import Course, Curriculum, Tag
 
 
-class CourseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Course
-        fields = "__all__"
-
-
 class CurriculumSerializer(serializers.ModelSerializer):
     class Meta:
         model = Curriculum
@@ -27,3 +21,12 @@ class PrerequisiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = ['name', 'category']
+
+class CourseSerializer(serializers.ModelSerializer):
+    prerequisites = PrerequisiteSerializer(read_only=True)
+    curriculums = CurriculumSerializer(read_only=True)
+    tags = TagSerializer(read_only=True)
+    class Meta:
+        model = Course
+        fields = "__all__"
+
