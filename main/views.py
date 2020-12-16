@@ -1,3 +1,4 @@
+from django_filters.rest_framework.backends import DjangoFilterBackend
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -13,7 +14,6 @@ from django_auto_prefetching import AutoPrefetchViewSetMixin
 from .models import Course
 from .serializers import CourseSerializer
 from django.http.response import HttpResponseRedirect
-
 # Create your views here.
 
 
@@ -84,10 +84,11 @@ def restricted_sample_endpoint(request):
                      'profile': profile_json})
 
 
-
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
-    permission_classes = [permissions.AllowAny]  # temprorary
+    # permission_classes = [permissions.AllowAny]  # temprorary
     serializer_class = CourseSerializer
-    filter_backends = [SearchFilter]
-    search_fields = ['name']
+    filter_backends = [SearchFilter, DjangoFilterBackend]
+    search_fields = ['name', 'aliasName', 'description', 'code']
+    filterset_fields = ['curriculums__name', 'tags__name', 'sks',
+                        'prerequisites__name']
     queryset = Course.objects.all()
