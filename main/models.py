@@ -11,6 +11,9 @@ class Curriculum(models.Model):
     name = models.CharField(max_length=31)
     year = models.PositiveSmallIntegerField()
 
+    def __str__(self):
+        return self.name
+
 
 class Tag(models.Model):
     """
@@ -30,6 +33,9 @@ class Tag(models.Model):
     * Others (?)
     """
     name = models.CharField(max_length=31)
+
+    def __str__(self):
+        return self.name
 
     class Category(models.TextChoices):
         """
@@ -62,10 +68,14 @@ class Course(models.Model):
     name = models.CharField(max_length=127)
     aliasName = models.CharField(max_length=63)
     sks = models.PositiveSmallIntegerField()
-    description = models.CharField(max_length=127)
-    prerequisites = models.ManyToManyField("self", symmetrical=False)
-    curriculums = models.ManyToManyField(Curriculum)
-    tags = models.ManyToManyField(Tag)
+    description = models.CharField(max_length=127, blank=True)
+    prerequisites = models.ManyToManyField(
+        "self", symmetrical=False, blank=True)
+    curriculums = models.ManyToManyField(Curriculum, blank=True)
+    tags = models.ManyToManyField(Tag, blank=True)
+
+    def __str__(self):
+        return self.name
 
     def get_category(self):
         if not self.tags.exists():
