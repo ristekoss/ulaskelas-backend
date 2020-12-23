@@ -67,22 +67,38 @@ Now you can login with superuser you just create on <https://localhost:8000> and
 Visit [/api/schema/swagger/](http://127.0.0.1:8000/api/schema/swagger/)
 
 -------
+
 ## Documentation from 2020
 
-### Feature #1
-This is a feature to xxx, the code is located on `xxx.py`. 
+### Authentication
+
+Send POST request to `/login/`. This endpoint will redirect user to SSO Login page. If login success, login page will be directed to `/token/` endpoint where you can retrieve **token** and **username** in its URL parameters.
+
+Example:
+
 ```
-print('hello world')
+{BACKEND_ROOT_URL}/token?token=f039021efcvery-long-tokencbe90717daded39&username=dummy.dumdum
 ```
-Intended use :
-- x
-- x
+
+This token will be used in authorization header as token authorization. Set `Token {very-long-token}` as value of `Authorization` on the headers of every endpoint that need authorization.
+
+Example:
+
+```bash
+curl {BACKEND_ROOT_URL}/any-restricted-endpoint/
+    -H "Accept: application/json"
+    -H "Authorization: Token f039021efcvery-long-tokencbe90717daded39"
+```
 
 ### Feature #1
-This is a feature to xxx, the code is located on `xxx.py`. 
+
+This is a feature to xxx, the code is located on `xxx.py`.
+
 ```
 print('hello world')
 ```
+
 Intended use :
+
 - x
 - x
