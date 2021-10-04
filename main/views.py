@@ -12,7 +12,7 @@ from django.core import serializers
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .models import Course
-from .serializers import CourseSerializer
+# from .serializers import CourseSerializer
 from django.http.response import HttpResponseRedirect
 # Create your views here.
 
@@ -86,7 +86,7 @@ def restricted_sample_endpoint(request):
 
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
     # permission_classes = [permissions.AllowAny]  # temprorary
-    serializer_class = CourseSerializer
+    # serializer_class = CourseSerializer
     filter_backends = [SearchFilter, DjangoFilterBackend]
     search_fields = ['name', 'aliasName', 'description', 'code']
     filterset_fields = ['curriculums__name', 'tags__name', 'sks',
