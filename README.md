@@ -36,8 +36,7 @@ pip install -r requirements.txt
 python manage.py migrate
 ```
 
-If this is the first time you migrate, you will see `db.sqlite3` after running command above.
-But if you want to update the database
+If this is the first time you migrate, you will see `db.sqlite3` after running command above.  
 
 #### Update database
 
@@ -52,7 +51,7 @@ python manage.py makemigrations
 ```bash
 python manage.py migrate
 ```
-if after you migrate and the database not updated, please delete `db.sqlite3` file, and migrate again. 
+if after you migrate and the database not updated, please delete `db.sqlite3` file, and migrate again.  
 
 <!-- TODO: 
 will use postgresql later
