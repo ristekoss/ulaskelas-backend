@@ -79,6 +79,12 @@ Now you can login with superuser you just create on <https://localhost:8000> and
 
 Visit [/api/schema/swagger/](http://127.0.0.1:8000/api/schema/swagger/)
 
+### Sunjad Endpoint Used
+
+Sunjad all courses mock servers
+https://3e081de5-8b4c-46ea-8736-99476c47204b.mock.pstmn.io/courses 
+
+
 -------
 
 ## Documentation from 2020
