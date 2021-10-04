@@ -36,8 +36,26 @@ pip install -r requirements.txt
 python manage.py migrate
 ```
 
+If this is the first time you migrate, you will see `db.sqlite3` after running command above.
+But if you want to update the database
+
+#### Update database
+
+1. change or add the related models
+
+2. make migrations file
+```bash
+python manage.py makemigrations
+```
+
+3. migrate database
+```bash
+python manage.py migrate
+```
+if after you migrate and the database not updated, please delete `db.sqlite3` file, and migrate again. 
+
 <!-- TODO: 
-### Set up database from scratch
+will use postgresql later
  -->
 
 #### Use populated database
@@ -45,10 +63,6 @@ python manage.py migrate
 ```bash
 python manage.py loaddata db.json
 ```
-
-You might want to delete `db.sqlite3` if you already have data from main models.
-
-OR
 
 Rename `db_dump.sqlite3` to `db.sqlite3` if things not worked out and you're too lazy.
 
