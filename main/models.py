@@ -13,8 +13,7 @@ class Course(models.Model):
     description = models.CharField(max_length=2048, blank=True)
     sks = models.PositiveSmallIntegerField()
     term = models.PositiveSmallIntegerField()
-    credit = models.PositiveSmallIntegerField()
-    prerequisite_course = models.ManyToManyField("self", blank=True)
+    prerequisites = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return self.name

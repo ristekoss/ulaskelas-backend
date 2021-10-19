@@ -14,3 +14,11 @@ from django.core.wsgi import get_wsgi_application
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'UlasKelas.settings')
 
 application = get_wsgi_application()
+
+# TODO: will use this later
+# from courseUpdater import updater
+# updater.start()
+
+# For testing and populate courses data
+# from courseUpdater import courseApi
+# courseApi.update_courses()

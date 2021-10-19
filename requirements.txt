@@ -1,3 +1,4 @@
+APScheduler==3.8.0
 asgiref==3.2.10
 autopep8==1.5.4
 certifi==2020.11.8
