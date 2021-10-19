@@ -59,11 +59,19 @@ class Review(models.Model):
         self.modified = timezone.now()
         return super(Review, self).save(*args, **kwargs)
 
+class Tag(models.Model):
+    """
+    Tag for a review
+    """
+    tag_name = models.CharField(max_length=30)
 
 class ReviewLike(models.Model):
     user = models.ForeignKey(Profile, on_delete=CASCADE)
     review = models.ForeignKey(Review, on_delete=CASCADE)
 
+class ReviewTag(models.Model):
+    review = models.ForeignKey(Review, on_delete=CASCADE)
+    tag = models.ForeignKey(Tag, on_delete=CASCADE)
 
 class Bookmark(models.Model):
     """
