@@ -27,6 +27,9 @@ class Profile(models.Model):
     npm = models.CharField(max_length=10)
     faculty = models.CharField(max_length=63)
     study_program = models.CharField(max_length=63)
+    educational_program = models.CharField(max_length=63)
+    role = models.CharField(max_length=63)
+    org_code = models.CharField(max_length=63)
 
 
 class Review(models.Model):
@@ -39,24 +42,26 @@ class Review(models.Model):
 
     class HateSpeechStatus(models.TextChoices):
         WAITING = 'WAITING'
-        VERIFIED = 'VERIFIED'
+        APPROVED = 'APPROVED'
+        REJECTED = 'REJECTED'
 
     user = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
-    academic_year = models.PositiveIntegerField()
+    academic_year = models.CharField(max_length=9)
     semester = models.IntegerField(choices=Semester.choices)
     content = models.TextField()
     hate_speech_status = models.CharField(choices=HateSpeechStatus.choices, max_length=20)
-    sentimen = models.PositiveSmallIntegerField()
+    sentimen = models.PositiveSmallIntegerField(null=True)
     is_anonym = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         ''' On save, update timestamps '''
         if not self.id:
-            self.created = timezone.now()
-        self.modified = timezone.now()
+            self.created_at = timezone.now()
+            self.hate_speech_status = "WAITING"
+        self.updated_at = timezone.now()
         return super(Review, self).save(*args, **kwargs)
 
 class Tag(models.Model):

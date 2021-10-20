@@ -20,5 +20,5 @@ application = get_wsgi_application()
 # updater.start()
 
 # For testing and populate courses data
-# from courseUpdater import courseApi
-# courseApi.update_courses()
+from courseUpdater import courseApi
+courseApi.update_courses()

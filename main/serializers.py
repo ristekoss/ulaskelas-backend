@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 # from .models import Course, Curriculum, Tag
+from .models import Profile, Review
 
 
 # class CurriculumSerializer(serializers.ModelSerializer):
@@ -31,3 +32,8 @@ from rest_framework import serializers
 #     class Meta:
 #         model = Course
 #         fields = "__all__"
+
+class ReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Review
+        fields = "__all__"
