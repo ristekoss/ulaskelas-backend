@@ -12,7 +12,7 @@ from django.core import serializers
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 from django.utils import timezone
 
-from .models import Course, Review, Profile
+from .models import Course, Review, Profile, ReviewLike
 from .serializers import ReviewSerializer
 from django.http.response import HttpResponseRedirect
 
@@ -113,7 +113,8 @@ def review(request):
 			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
 		reviews = Review.objects.filter(course=course)
 		if reviews.exists():
-			return response(data=ReviewSerializer(reviews, many=True).data)
+			review_likes = ReviewLike.objects.filter(review__course=course)
+			return response(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes}).data)
 		return response(data=[])
 
 	if request.method == 'POST':
@@ -169,3 +170,33 @@ def review(request):
 			return response(error="Review does not exist", status=status.HTTP_409_CONFLICT)
 		review.delete()
 		return response(status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+def like(request):
+	"""
+	Handle CUD Like.
+	Remember that this endpoint require Token Authorization. 
+    """
+	user = Profile.objects.get(username=str(request.user))
+
+	if request.method == 'POST':
+		isValid = validateBody(request, ['review_id', 'is_like'])
+		if isValid != None:
+			return isValid
+		
+		review_id = request.data.get("review_id")
+		is_like = request.data.get("is_like")
+		
+		review = Review.objects.filter(id=review_id).first()
+		if review is None:
+			return response(error="Review not found", status=status.HTTP_404_NOT_FOUND)
+
+		review_likes = ReviewLike.objects.filter(review=review).first()
+		if review_likes is None:
+			review_likes = ReviewLike.objects.create(user=user, review=review)
+
+		if is_like == False:
+			review_likes.delete()
+		
+		return response(status=status.HTTP_201_CREATED)
+	
