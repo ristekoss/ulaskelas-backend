@@ -1,8 +1,6 @@
 from django_filters.rest_framework.backends import DjangoFilterBackend
-from drf_spectacular.utils import OpenApiParameter, extend_schema
-from drf_spectacular.types import OpenApiTypes
-from rest_framework.decorators import api_view, permission_classes, renderer_classes
-from rest_framework import permissions, status, views
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter
 from rest_framework import viewsets
@@ -12,7 +10,6 @@ from sso.decorators import with_sso_ui
 from sso.utils import get_logout_url
 from django.core import serializers
 from django_auto_prefetching import AutoPrefetchViewSetMixin
-from django.utils import timezone
 
 from .models import Course, Review, Profile, ReviewLike
 from .serializers import CourseSerializer, ReviewSerializer
