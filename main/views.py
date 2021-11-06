@@ -1,6 +1,8 @@
 from django_filters.rest_framework.backends import DjangoFilterBackend
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework import permissions, status
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.types import OpenApiTypes
+from rest_framework.decorators import api_view, permission_classes, renderer_classes
+from rest_framework import permissions, status, views
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter
 from rest_framework import viewsets
@@ -13,7 +15,7 @@ from django_auto_prefetching import AutoPrefetchViewSetMixin
 from django.utils import timezone
 
 from .models import Course, Review, Profile, ReviewLike
-from .serializers import ReviewSerializer
+from .serializers import CourseSerializer, ReviewSerializer
 from django.http.response import HttpResponseRedirect
 
 
@@ -86,11 +88,10 @@ def restricted_sample_endpoint(request):
 
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
     # permission_classes = [permissions.AllowAny]  # temprorary
-    # serializer_class = CourseSerializer
+    serializer_class = CourseSerializer
     filter_backends = [SearchFilter, DjangoFilterBackend]
-    search_fields = ['name', 'aliasName', 'description', 'code']
-    filterset_fields = ['curriculums__name', 'tags__name', 'sks',
-                        'prerequisites__name']
+    search_fields = ['name', 'description', 'code']
+    filterset_fields = ['curriculum', 'sks', 'prerequisites']
     queryset = Course.objects.all()
 
 
