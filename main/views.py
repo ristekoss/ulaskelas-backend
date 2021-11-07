@@ -14,6 +14,7 @@ from django_auto_prefetching import AutoPrefetchViewSetMixin
 from .models import Course, Review, Profile, ReviewLike
 from .serializers import CourseSerializer, ReviewSerializer
 from django.http.response import HttpResponseRedirect
+from courseUpdater import courseApi
 
 
 @api_view(['GET'])
@@ -22,6 +23,9 @@ def sample_api(request):
     """
     Just an overly simple sample enpoint to call.
     """
+	# For testing and populate courses data
+    courseApi.update_courses()
+	
     time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     message = 'API Call succeed on %s' % time
     return Response({'message': message})
