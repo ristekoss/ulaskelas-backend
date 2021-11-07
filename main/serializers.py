@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Course, Review
+from .models import Course, Review, ReviewLike, Tag
 
 
 # class CurriculumSerializer(serializers.ModelSerializer):
@@ -9,10 +9,10 @@ from .models import Course, Review
 #         fields = ['name', 'year']
 
 
-# class TagSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Tag
-#         fields = ['name', 'category']
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ['tag_name']
 
 
 # class PrerequisiteSerializer(serializers.ModelSerializer):
@@ -24,9 +24,14 @@ from .models import Course, Review
 
 
 class CourseSerializer(serializers.ModelSerializer):
+    # prerequisites = PrerequisiteSerializer(read_only=True, many=True)
+    # curriculums = CurriculumSerializer(read_only=True, many=True)
+    tags = TagSerializer(read_only=True, many=True)
+    review_count = serializers.IntegerField()
+
     class Meta:
         model = Course
-        fields = "__all__"
+        fields = ('code', 'curriculum', 'name', 'description', 'sks', 'term', 'prerequisites', 'review_count', 'tags')
 
 class ReviewSerializer(serializers.ModelSerializer):
     likes_by = serializers.SerializerMethodField('get_likes')
