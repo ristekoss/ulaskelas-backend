@@ -1,6 +1,7 @@
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter
 from rest_framework import viewsets
@@ -9,8 +10,10 @@ from .utils import process_sso_profile, response, validateBody, validateParams
 from sso.decorators import with_sso_ui
 from sso.utils import get_logout_url
 from django.core import serializers
+from django.db.models import Count
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
+from .decorators import query_count
 from .models import Course, Review, Profile, ReviewLike, Tag
 from .serializers import CourseSerializer, ReviewSerializer, TagSerializer
 from django.http.response import HttpResponseRedirect
@@ -84,12 +87,22 @@ def restricted_sample_endpoint(request):
 
 
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
-    # permission_classes = [permissions.AllowAny]  # temprorary
-    serializer_class = CourseSerializer
-    filter_backends = [SearchFilter, DjangoFilterBackend]
-    search_fields = ['name', 'description', 'code']
-    filterset_fields = ['curriculum', 'sks', 'prerequisites']
-    queryset = Course.objects.all()
+	permission_classes = [permissions.AllowAny]  # temprorary
+	serializer_class = CourseSerializer
+	filter_backends = [SearchFilter, DjangoFilterBackend]
+	search_fields = ['name', 'aliasName', 'description', 'code']
+	# filterset_fields = ['curriculums__name', 'tags__name', 'sks',
+	# 					'prerequisites__name']
+	# queryset = Course.objects.all()
+
+	def get_queryset(self):
+		return Course.objects.annotate(review_count=Count('review'))
+
+	@action(detail=False, methods=['GET'])
+	def get_courses(self, request):
+		courses = self.get_queryset()
+		data = self.get_serializer(courses, many=True).data
+		return Response({'courses': data})
 
 
 @api_view(['GET', 'PUT', 'POST','DELETE'])
@@ -210,3 +223,16 @@ def get_tags(request):
 		tags = Tag.objects.all()
 
 	return Response({'tags': TagSerializer(tags, many=True).data})
+
+# @api_view(['GET'])
+# @permission_classes((permissions.AllowAny,))
+# def update_courses(request):
+# 	from courseUpdater.courseApi import update_courses
+# 	"""
+# 	Just an overly simple sample enpoint to call.
+# 	"""
+# 	try:
+# 		update_courses()
+# 		return Response({'update': 'success'})
+# 	except:
+# 		return Response({'update': 'failed'})
