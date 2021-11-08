@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Course, Review
+from .models import Course, Review, Tag
 
 
 # class CurriculumSerializer(serializers.ModelSerializer):
@@ -9,10 +9,10 @@ from .models import Course, Review
 #         fields = ['name', 'year']
 
 
-# class TagSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Tag
-#         fields = ['name', 'category']
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ['tag_name']
 
 
 # class PrerequisiteSerializer(serializers.ModelSerializer):

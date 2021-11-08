@@ -11,8 +11,8 @@ from sso.utils import get_logout_url
 from django.core import serializers
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
-from .models import Course, Review, Profile, ReviewLike
-from .serializers import CourseSerializer, ReviewSerializer
+from .models import Course, Review, Profile, ReviewLike, Tag
+from .serializers import CourseSerializer, ReviewSerializer, TagSerializer
 from django.http.response import HttpResponseRedirect
 
 
@@ -198,3 +198,15 @@ def like(request):
 		
 		return response(status=status.HTTP_201_CREATED)
 	
+@api_view(['GET'])
+@permission_classes((permissions.AllowAny,))
+def get_tags(request):
+	"""
+	Handle Read Tags.
+    """
+	if 'course' in request.GET:
+		tags = Tag.objects.filter(courses__id=request.GET['course'])
+	else:
+		tags = Tag.objects.all()
+
+	return Response({'tags': TagSerializer(tags, many=True).data})
