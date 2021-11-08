@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.deletion import CASCADE
 
@@ -22,7 +23,7 @@ class Course(models.Model):
     description = models.CharField(max_length=2048, blank=True)
     sks = models.PositiveSmallIntegerField()
     term = models.PositiveSmallIntegerField()
-    prerequisites = models.CharField(max_length=100, blank=True)
+    prerequisites = models.CharField(max_length=512, blank=True)
     tags = models.ManyToManyField(Tag, blank=True, related_name="courses")
 
     def __str__(self):
@@ -32,6 +33,7 @@ class Profile(models.Model):
     """
     User information generated from SSO UI attributes.
     """
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     username = models.CharField(max_length=63)
     name = models.CharField(max_length=63)
     npm = models.CharField(max_length=10)

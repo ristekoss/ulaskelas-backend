@@ -17,6 +17,7 @@ from .decorators import query_count
 from .models import Course, Review, Profile, ReviewLike, Tag
 from .serializers import CourseSerializer, ReviewSerializer, TagSerializer
 from django.http.response import HttpResponseRedirect
+from courseUpdater import courseApi
 
 
 @api_view(['GET'])
@@ -25,6 +26,9 @@ def sample_api(request):
     """
     Just an overly simple sample enpoint to call.
     """
+	# For testing and populate courses data
+    courseApi.update_courses()
+	
     time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     message = 'API Call succeed on %s' % time
     return Response({'message': message})

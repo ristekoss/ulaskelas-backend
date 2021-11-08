@@ -8,9 +8,9 @@ router.register("courses", CourseViewSet, basename="courses")
 
 urlpatterns = [
     path("", include(router.urls)),
-	path("review", review, name="review"),
-	path("like", like, name="like"),
-	path("get_tags", get_tags, name="get_tags")
+	path("reviews", review, name="reviews"),
+	path("likes", like, name="likes"),
+	path("tags", get_tags, name="tags")
     # path("update_courses", update_courses, name="update_courses"), # temporary
 ] + router.urls
 

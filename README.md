@@ -24,60 +24,46 @@ source env/bin/activate
 deactivate
 ```
 
-### Install depedencies
+### Run app
 
 ```bash
-pip install -r requirements.txt
+docker-compose up -d
 ```
 
-#### Migrate database
+if you make code changes, run this command
 
 ```bash
-python manage.py migrate
+docker-compose down && sudo docker-compose build && docker-compose up -d
 ```
 
-If this is the first time you migrate, you will see `db.sqlite3` after running command above.  
-
-#### Update database
+#### Create or update database
 
 1. change or add the related models
 
 2. make migrations file
+make sure change pg host to localhost in settings.py before makemigrations
 ```bash
 python manage.py makemigrations
 ```
+change host to postgres again
 
 3. migrate database
-```bash
-python manage.py migrate
-```
-if after you migrate and the database not updated, please delete `db.sqlite3` file, and migrate again.  
-
-<!-- TODO: 
-will use postgresql later
- -->
-
-#### Use populated database
+before migrate db, make sure ulas-pg container running
 
 ```bash
-python manage.py loaddata db.json
+docker exec -it ulas-server python manage.py migrate
 ```
 
-Rename `db_dump.sqlite3` to `db.sqlite3` if things not worked out and you're too lazy.
-
-### Run app
+#### Access db
 
 ```bash
-python manage.py runserver
-# --- or ---
-# press F5 on VS Code
+docker exec -it ulas-pg bash
+psql -U postgres
 ```
+
+or use database management and input credentials provided in settings.py
 
 Now you can login with superuser you just create on <https://localhost:8000> and interact with API view OR call the API endpoint with [cURL](https://curl.haxx.se/) or [Postman](https://www.postman.com/).
-
-## API Endpoint
-
-Visit [/api/schema/swagger/](http://127.0.0.1:8000/api/schema/swagger/)
 
 ### Sunjad Endpoint Used
 
