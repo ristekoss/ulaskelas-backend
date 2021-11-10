@@ -3,3 +3,5 @@ env
 db.sqlite3
 /static/
 /data/
+
+/UlasKelas/.env
