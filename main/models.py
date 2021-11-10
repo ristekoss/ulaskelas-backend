@@ -4,6 +4,15 @@ from django.db.models.deletion import CASCADE
 
 from django.utils import timezone
 
+class Tag(models.Model):
+    """
+    Tag for a review
+    """
+    tag_name = models.CharField(max_length=30)
+
+    def __str__(self):
+        return self.tag_name
+
 class Course(models.Model):
     """
     Mata Kuliah.
@@ -15,6 +24,7 @@ class Course(models.Model):
     sks = models.PositiveSmallIntegerField()
     term = models.PositiveSmallIntegerField()
     prerequisites = models.CharField(max_length=512, blank=True)
+    tags = models.ManyToManyField(Tag, blank=True, related_name="courses")
 
     def __str__(self):
         return self.name
@@ -65,12 +75,6 @@ class Review(models.Model):
             self.hate_speech_status = "WAITING"
         self.updated_at = timezone.now()
         return super(Review, self).save(*args, **kwargs)
-
-class Tag(models.Model):
-    """
-    Tag for a review
-    """
-    tag_name = models.CharField(max_length=30)
 
 class ReviewLike(models.Model):
     user = models.ForeignKey(Profile, on_delete=CASCADE)

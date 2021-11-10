@@ -1,6 +1,8 @@
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
+from rest_framework.fields import CreateOnlyDefault
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter
 from rest_framework import viewsets
@@ -9,10 +11,12 @@ from .utils import process_sso_profile, response, validateBody, validateParams
 from sso.decorators import with_sso_ui
 from sso.utils import get_logout_url
 from django.core import serializers
+from django.db.models import Count
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
-from .models import Course, Review, Profile, ReviewLike
-from .serializers import CourseSerializer, ReviewSerializer
+from .decorators import query_count
+from .models import Course, Review, Profile, ReviewLike, Tag, Bookmark
+from .serializers import CourseSerializer, ReviewSerializer, TagSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
 
@@ -88,13 +92,32 @@ def restricted_sample_endpoint(request):
 
 
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
-    # permission_classes = [permissions.AllowAny]  # temprorary
-    serializer_class = CourseSerializer
-    filter_backends = [SearchFilter, DjangoFilterBackend]
-    search_fields = ['name', 'description', 'code']
-    filterset_fields = ['curriculum', 'sks', 'prerequisites']
-    queryset = Course.objects.all()
+	permission_classes = [permissions.AllowAny]  # temprorary
+	serializer_class = CourseSerializer
+	filter_backends = [SearchFilter, DjangoFilterBackend]
+	search_fields = ['name', 'aliasName', 'description', 'code']
+	# filterset_fields = ['curriculums__name', 'tags__name', 'sks',
+	# 					'prerequisites__name']
+	# queryset = Course.objects.all()
 
+	def get_queryset(self):
+		return Course.objects.annotate(review_count=Count('review'))
+
+	@action(detail=False, methods=['GET'])
+	def get_courses(self, request):
+		courses = self.get_queryset()
+		data = self.get_serializer(courses, many=True).data
+		return Response({'courses': data})
+
+def create_course_tag(course, tags):
+	for i in tags:
+		tag = i.upper()
+		try:
+			tag_obj = Tag.objects.get(tag_name=tag)
+		except Tag.DoesNotExist:
+			tag_obj = Tag.objects.create(tag_name=tag)
+		
+		course.tags.add(tag_obj)
 
 @api_view(['GET', 'PUT', 'POST','DELETE'])
 def review(request):
@@ -120,13 +143,17 @@ def review(request):
 		return response(data=[])
 
 	if request.method == 'POST':
-		isValid = validateBody(request, ['course_code', 'academic_year', 'semester', 'content', 'is_anonym'])
+		isValid = validateBody(request, ['course_code', 'academic_year', 'semester', 'content', 'is_anonym', 'tags'])
 		if isValid != None:
 			return isValid
 		
 		course = Course.objects.filter(code=request.data.get("course_code")).first()
 		if course is None:
 			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+		
+		tags = request.data.get("tags")
+		create_course_tag(course, tags)
+
 		academic_year = request.data.get("academic_year")
 		semester = request.data.get("semester")
 		content = request.data.get("content")
@@ -201,4 +228,95 @@ def like(request):
 			review_likes.delete()
 		
 		return response(status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'POST', 'DELETE'])
+def bookmark(request):
+	user = Profile.objects.get(username=str(request.user))
+	if request.method == 'GET':
+		param_exist = request.query_params.get('course_code') is not None
+		print(param_exist)
+		
+		# get all bookmarks
+		if not param_exist:
+			bookmarks = Bookmark.objects.filter(user=user)
+			return response(data=BookmarkSerializer(bookmarks, many=True).data)
+
+		# get bookmark by course code
+		isValid = validateParams(request, ['course_code'])
+		if isValid != None:
+			return isValid
+
+		course_code = request.query_params.get("course_code")
+		course = Course.objects.filter(code=course_code).first()
+			
+		if course is None:
+			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+
+		bookmarks = Bookmark.objects.filter(user=user, course=course)
+		if bookmarks.exists():
+			# get bookmark by course
+			return response(data=BookmarkSerializer(bookmarks, many=True).data)
+		return response(data=[])
+
+	if request.method == 'POST':
+		isValid = validateBody(request, ['course_code'])
+		if isValid != None:
+			return isValid
+
+		course_code = request.data.get("course_code")
+		course = Course.objects.filter(code=course_code).first()
+				
+		if course is None:
+			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+
+		bookmark = Bookmark.objects.filter(user=user, course=course).first()
+		if bookmark is None:
+			bookmark = Bookmark.objects.create(user=user, course=course)
+		return response(data=BookmarkSerializer(bookmark).data, status=status.HTTP_201_CREATED)
 	
+	if request.method == 'DELETE':
+		isValid = validateParams(request, ['course_code'])
+		if isValid != None:
+			return isValid
+
+		course_code = request.query_params.get("course_code")
+		course = Course.objects.filter(code=course_code).first()
+		
+		if course is None:
+			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+
+		bookmark = Bookmark.objects.filter(user=user, course=course).first()
+		
+		if bookmark is None:
+			return response(error="Bookmark not found", status=status.HTTP_404_NOT_FOUND)
+		
+		bookmark.delete()
+		return response(status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes((permissions.AllowAny,))
+def get_tags(request):
+	"""
+	Handle Read Tags.
+    """
+	if 'course' in request.GET:
+		tags = Tag.objects.filter(courses__id=request.GET['course'])
+	else:
+		tags = Tag.objects.all()
+
+	return Response({'tags': TagSerializer(tags, many=True).data})
+
+# @api_view(['GET'])
+# @permission_classes((permissions.AllowAny,))
+# def update_courses(request):
+# 	from courseUpdater.courseApi import update_courses
+# 	"""
+# 	Just an overly simple sample enpoint to call.
+# 	"""
+# 	try:
+# 		update_courses()
+# 		return Response({'update': 'success'})
+# 	except:
+# 		return Response({'update': 'failed'})

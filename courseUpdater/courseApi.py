@@ -2,6 +2,7 @@ import requests
 from main.models import Course
 
 def update_courses():
+    print("UPDATE CALLED")
     json = _get_courses_json()
     if json is not None:
         courses_json = json['courses']
