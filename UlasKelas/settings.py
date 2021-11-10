@@ -14,6 +14,8 @@ from pathlib import Path
 from corsheaders import defaults
 
 import environ
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
 
 env = environ.Env()
 environ.Env.read_env()
@@ -113,6 +115,14 @@ DATABASES = {
         'PORT': 5432,
     }
 }
+
+# Sentry
+sentry_sdk.init(
+    dsn=env("SENTRY_DSN"),
+    integrations=[DjangoIntegration()],
+    traces_sample_rate=0.7,
+    send_default_pii=True
+)
 
 
 # Password validation

@@ -26,12 +26,14 @@ deactivate
 
 ### Run app dev
 
-run postgres db
+1. change ./UlasKelas/.env.sample to ./UlasKelas/.env
+
+2. run postgres db
 ```bash
 docker-compose up -d
 ```
 
-run project
+3. run project
 ```bash
 python manage.py runserver
 ```
