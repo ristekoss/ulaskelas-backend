@@ -12,8 +12,6 @@ services:
       - POSTGRES_PASSWORD=postgres
     ports:
       - "5432:5432"
-    networks:
-      - ulas_network
   server:
     container_name: ulas-server
     build: .
@@ -23,9 +21,3 @@ services:
       - "8000:8000"
     depends_on:
       - postgres
-    networks:
-      - ulas_network
-
-networks:
-  ulas_network:
-    name: ulas_network
