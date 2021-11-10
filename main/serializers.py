@@ -59,9 +59,12 @@ class ReviewSerializer(serializers.ModelSerializer):
         return likes
 
 class BookmarkSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField('get_user')
+    course = serializers.SerializerMethodField('get_course')
+
     class Meta:
         model = Bookmark
-        fields = "__all__"
+        fields = ('user', 'course')
     
     def get_user(self, obj):
         return obj.user.username
