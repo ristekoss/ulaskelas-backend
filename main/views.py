@@ -1,6 +1,7 @@
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
+from rest_framework.fields import CreateOnlyDefault
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter
@@ -108,6 +109,15 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 		data = self.get_serializer(courses, many=True).data
 		return Response({'courses': data})
 
+def create_course_tag(course, tags):
+	for i in tags:
+		tag = i.upper()
+		try:
+			tag_obj = Tag.objects.get(tag_name=tag)
+		except Tag.DoesNotExist:
+			tag_obj = Tag.objects.create(tag_name=tag)
+		
+		course.tags.add(tag_obj)
 
 @api_view(['GET', 'PUT', 'POST','DELETE'])
 def review(request):
@@ -133,13 +143,17 @@ def review(request):
 		return response(data=[])
 
 	if request.method == 'POST':
-		isValid = validateBody(request, ['course_code', 'academic_year', 'semester', 'content', 'is_anonym'])
+		isValid = validateBody(request, ['course_code', 'academic_year', 'semester', 'content', 'is_anonym', 'tags'])
 		if isValid != None:
 			return isValid
 		
 		course = Course.objects.filter(code=request.data.get("course_code")).first()
 		if course is None:
 			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+		
+		tags = request.data.get("tags")
+		create_course_tag(course, tags)
+
 		academic_year = request.data.get("academic_year")
 		semester = request.data.get("semester")
 		content = request.data.get("content")
