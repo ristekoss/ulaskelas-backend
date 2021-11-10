@@ -12,3 +12,12 @@ services:
       - POSTGRES_PASSWORD=postgres
     ports:
       - "5432:5432"
+  server:
+    container_name: ulas-server
+    build: .
+    volumes:
+      - ./instance/config.cfg:/opt/app/instance/config.cfg
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres

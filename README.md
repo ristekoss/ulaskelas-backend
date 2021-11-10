@@ -24,19 +24,43 @@ source env/bin/activate
 deactivate
 ```
 
-### Run app
+### Run app dev
 
+run postgres db
 ```bash
 docker-compose up -d
+```
+
+run project
+```bash
+python manage.py runserver
+```
+
+### Run app prod
+
+```bash
+docker-compose -f docker-compose-prod.yml up -d
 ```
 
 if you make code changes, run this command
 
 ```bash
-docker-compose down && sudo docker-compose build && docker-compose up -d
+docker-compose -f docker-compose-prod.yml down && sudo docker-compose -f docker-compose-prod.yml build && docker-compose -f docker-compose-prod.yml up -d
 ```
 
-#### Create or update database
+#### Create or update database dev
+
+before migrate db, make sure ulas-pg container running
+
+1. change or add the related models
+
+2. make migrations file && migrate database
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+#### Create or update database prod
 
 1. change or add the related models
 
