@@ -237,7 +237,7 @@ def like(request):
 		return response(status=status.HTTP_201_CREATED)
 
 
-@api_view(['GET', 'POST', 'DELETE'])
+@api_view(['GET', 'POST'])
 def bookmark(request):
 	user = Profile.objects.get(username=str(request.user))
 	if request.method == 'GET':
@@ -265,19 +265,55 @@ def bookmark(request):
 
 		return response(data=BookmarkSerializer(bookmark).data, status=status.HTTP_201_CREATED)
 
-
-@api_view(['GET'])
-@permission_classes((permissions.AllowAny,))
-def get_tags(request):
+@api_view(['GET', 'POST', 'DELETE'])
+@permission_classes((permissions.AllowAny,)) #temp
+def tag(request):
 	"""
-	Handle Read Tags.
+	Handle CR Tag.
+	Remember that this endpoint require Token Authorization. 
     """
-	if 'course' in request.GET:
-		tags = Tag.objects.filter(courses__id=request.GET['course'])
-	else:
-		tags = Tag.objects.all()
+	user = Profile.objects.get(username=str(request.user))
 
-	return Response({'tags': TagSerializer(tags, many=True).data})
+	if request.method == 'GET':
+		if 'course' in request.GET:
+			tags = Tag.objects.filter(courses__id=request.GET['course'])
+		else:
+			tags = Tag.objects.all()
+
+		return Response({'tags': TagSerializer(tags, many=True).data})
+
+	if request.method == 'POST':
+		isValid = validateBody(request, ['tags'])
+		if isValid != None:
+			return isValid
+		
+		tags = request.data.get("tags")
+		for tag in tags:
+			tag = tag.upper()
+			try:
+				Tag.objects.get(tag_name=tag)
+			except:
+				Tag.objects.create(tag_name=tag)
+		return response(status=status.HTTP_201_CREATED)
+	
+	if request.method == 'DELETE':
+		isValid = validateBody(request, ['tags'])
+		if isValid != None:
+			return isValid
+		
+		tags = request.data.get("tags")
+		for tag in tags:
+			tag = tag.upper()
+			print(tag)
+			try:
+				tag_obj = Tag.objects.get(tag_name=tag)
+				print("masuk5")
+				tag_obj.delete()
+				print("masuk2")
+			except Exception as e:
+				print(e)
+				continue
+		return response(status=status.HTTP_200_OK)
 
 # @api_view(['GET'])
 # @permission_classes((permissions.AllowAny,))
