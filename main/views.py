@@ -140,7 +140,8 @@ def review(request):
 		reviews = Review.objects.filter(course=course)
 		if reviews.exists():
 			review_likes = ReviewLike.objects.filter(review__course=course)
-			return response(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes}).data)
+			review_tags = ReviewTag.objects.all()
+			return response(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes, 'review_tags':review_tags}).data)
 		return response(data=[])
 
 	if request.method == 'POST':

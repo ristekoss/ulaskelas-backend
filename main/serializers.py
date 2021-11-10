@@ -34,13 +34,14 @@ class CourseSerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     likes_by = serializers.SerializerMethodField('get_likes')
+    tags = serializers.SerializerMethodField('get_tags')
     author = serializers.SerializerMethodField('get_author')
     course_code = serializers.SerializerMethodField('get_course_code')
 
     class Meta:
         model = Review
         fields = ('author','course_code','created_at','updated_at','academic_year',
-        'semester','content','hate_speech_status','sentimen','is_anonym', 'likes_by')
+        'semester','content','hate_speech_status','sentimen','is_anonym', 'tags', 'likes_by')
 
     def get_author(self, obj):
         return obj.user.username
@@ -57,6 +58,16 @@ class ReviewSerializer(serializers.ModelSerializer):
         for like in review_likes:
             likes.append(like.user.username)
         return likes
+
+    def get_tags(self, obj):
+        try:
+            review_tags = self.context['review_tags'].filter(review=obj)
+        except:
+            review_tags = []
+        tags = []
+        for tag in review_tags:
+            tags.append(tag.tag.tag_name)
+        return tags
 
 class BookmarkSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField('get_user')
