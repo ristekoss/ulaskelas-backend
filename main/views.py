@@ -12,14 +12,18 @@ from sso.decorators import with_sso_ui
 from sso.utils import get_logout_url
 from django.core import serializers
 from django.db.models import Count
+from django.db import transaction
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .decorators import query_count
-from .models import Course, Review, Profile, ReviewLike, Tag, Bookmark
+from .models import Course, Review, Profile, ReviewLike, ReviewTag, Tag, Bookmark
 from .serializers import CourseSerializer, ReviewSerializer, TagSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
 @permission_classes((permissions.AllowAny,))
@@ -109,15 +113,12 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 		data = self.get_serializer(courses, many=True).data
 		return Response({'courses': data})
 
-def create_course_tag(course, tags):
+def create_review_tag(review, tags):
 	for i in tags:
 		tag = i.upper()
-		try:
-			tag_obj = Tag.objects.get(tag_name=tag)
-		except Tag.DoesNotExist:
-			tag_obj = Tag.objects.create(tag_name=tag)
-		
-		course.tags.add(tag_obj)
+		tag_obj = Tag.objects.get(tag_name=tag)
+		ReviewTag.objects.create(review = review, tag = tag_obj)
+		return None
 
 @api_view(['GET', 'PUT', 'POST','DELETE'])
 def review(request):
@@ -152,21 +153,26 @@ def review(request):
 			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
 		
 		tags = request.data.get("tags")
-		create_course_tag(course, tags)
-
 		academic_year = request.data.get("academic_year")
 		semester = request.data.get("semester")
 		content = request.data.get("content")
 		is_anonym = request.data.get("is_anonym")
 
-		review = Review.objects.create(
-			user=user,
-			course=course,
-			academic_year = academic_year,
-			semester = semester,
-			content = content,
-			is_anonym = is_anonym
-		)
+		try:
+			with transaction.atomic():
+				review = Review.objects.create(
+					user=user,
+					course=course,
+					academic_year = academic_year,
+					semester = semester,
+					content = content,
+					is_anonym = is_anonym
+				)
+				create_review_tag(review, tags)
+		except Exception as e:
+			logger.error("Failed to save review, request data {}".format(request.data))
+			return response(error="Failed to save review, error message: {}".format(e), status=status.HTTP_404_NOT_FOUND)
+
 		return response(data=ReviewSerializer(review).data, status=status.HTTP_201_CREATED)
 		
 
