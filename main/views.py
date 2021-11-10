@@ -15,8 +15,8 @@ from django.db.models import Count
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .decorators import query_count
-from .models import Course, Review, Profile, ReviewLike, Tag
-from .serializers import CourseSerializer, ReviewSerializer, TagSerializer
+from .models import Course, Review, Profile, ReviewLike, Tag, Bookmark
+from .serializers import CourseSerializer, ReviewSerializer, TagSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
 
@@ -228,7 +228,73 @@ def like(request):
 			review_likes.delete()
 		
 		return response(status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'POST', 'DELETE'])
+def bookmark(request):
+	user = Profile.objects.get(username=str(request.user))
+	if request.method == 'GET':
+		param_exist = request.query_params.get('course_code') is not None
+		print(param_exist)
+		
+		# get all bookmarks
+		if not param_exist:
+			bookmarks = Bookmark.objects.filter(user=user)
+			return response(data=BookmarkSerializer(bookmarks, many=True).data)
+
+		# get bookmark by course code
+		isValid = validateParams(request, ['course_code'])
+		if isValid != None:
+			return isValid
+
+		course_code = request.query_params.get("course_code")
+		course = Course.objects.filter(code=course_code).first()
+			
+		if course is None:
+			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+
+		bookmarks = Bookmark.objects.filter(user=user, course=course)
+		if bookmarks.exists():
+			# get bookmark by course
+			return response(data=BookmarkSerializer(bookmarks, many=True).data)
+		return response(data=[])
+
+	if request.method == 'POST':
+		isValid = validateBody(request, ['course_code'])
+		if isValid != None:
+			return isValid
+
+		course_code = request.data.get("course_code")
+		course = Course.objects.filter(code=course_code).first()
+				
+		if course is None:
+			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+
+		bookmark = Bookmark.objects.filter(user=user, course=course).first()
+		if bookmark is None:
+			bookmark = Bookmark.objects.create(user=user, course=course)
+		return response(data=BookmarkSerializer(bookmark).data, status=status.HTTP_201_CREATED)
 	
+	if request.method == 'DELETE':
+		isValid = validateParams(request, ['course_code'])
+		if isValid != None:
+			return isValid
+
+		course_code = request.query_params.get("course_code")
+		course = Course.objects.filter(code=course_code).first()
+		
+		if course is None:
+			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+
+		bookmark = Bookmark.objects.filter(user=user, course=course).first()
+		
+		if bookmark is None:
+			return response(error="Bookmark not found", status=status.HTTP_404_NOT_FOUND)
+		
+		bookmark.delete()
+		return response(status=status.HTTP_200_OK)
+
+
 @api_view(['GET'])
 @permission_classes((permissions.AllowAny,))
 def get_tags(request):

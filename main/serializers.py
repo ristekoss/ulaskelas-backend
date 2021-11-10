@@ -1,7 +1,6 @@
 from rest_framework import serializers
 
-from .models import Course, Review, ReviewLike, Tag
-
+from .models import Course, Review, ReviewLike, Tag, Bookmark
 
 # class CurriculumSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -58,3 +57,14 @@ class ReviewSerializer(serializers.ModelSerializer):
         for like in review_likes:
             likes.append(like.user.username)
         return likes
+
+class BookmarkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Bookmark
+        fields = "__all__"
+    
+    def get_user(self, obj):
+        return obj.user.username
+    
+    def get_course(self, obj):
+        return obj.course.code
