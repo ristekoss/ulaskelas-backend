@@ -2,9 +2,15 @@
 
 Final Project's Backend of Mobile Development SIG 2020 using Django Rest Framework.
 
-## Getting Started
 
-Follow the [General README](../README.md) first.
+
+## Database Schmea
+
+Database schema to as a guidance to data that will be used in this project
+
+![image](https://user-images.githubusercontent.com/41831375/140859530-1576ebcf-9a2b-47ce-8f9d-c593195f2eff.png)
+
+## Getting Started
 
 ### Move to backend directory
 
@@ -50,7 +56,7 @@ if you make code changes, run this command
 docker-compose -f docker-compose-prod.yml down && sudo docker-compose -f docker-compose-prod.yml build && docker-compose -f docker-compose-prod.yml up -d
 ```
 
-#### Create or update database dev
+### Create or update database dev
 
 before migrate db, make sure ulas-pg container running
 
@@ -62,7 +68,7 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
-#### Create or update database prod
+### Create or update database prod
 
 1. change or add the related models
 
@@ -80,7 +86,7 @@ before migrate db, make sure ulas-pg container running
 docker exec -it ulas-server python manage.py migrate
 ```
 
-#### Access db
+### Access db
 
 ```bash
 docker exec -it ulas-pg bash
@@ -120,16 +126,3 @@ curl {BACKEND_ROOT_URL}/any-restricted-endpoint/
     -H "Accept: application/json"
     -H "Authorization: Token f039021efcvery-long-tokencbe90717daded39"
 ```
-
-### Feature #1
-
-This is a feature to xxx, the code is located on `xxx.py`.
-
-```
-print('hello world')
-```
-
-Intended use :
-
-- x
-- x
