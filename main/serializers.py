@@ -25,8 +25,33 @@ class TagSerializer(serializers.ModelSerializer):
 class CourseSerializer(serializers.ModelSerializer):
     # prerequisites = PrerequisiteSerializer(read_only=True, many=True)
     # curriculums = CurriculumSerializer(read_only=True, many=True)
-    tags = TagSerializer(read_only=True, many=True)
     review_count = serializers.IntegerField()
+
+    class Meta:
+        model = Course
+        fields = ('code', 'curriculum', 'name', 'description', 'sks', 'term', 'prerequisites', 'review_count')
+
+class CourseDetailSerializer(serializers.ModelSerializer):
+    review_count = serializers.SerializerMethodField('get_review_count')
+    tags = serializers.SerializerMethodField('get_top_tags')
+
+    def get_review_count(self, obj):
+        return obj.reviews.count()
+
+    def get_top_tags(self, obj):
+        tag_count = {}
+
+        for review in obj.reviews.all():
+            for review_tag in review.review_tags.all():
+                tag_name = review_tag.tag.tag_name
+
+                if tag_name in tag_count:
+                    tag_count[tag_name] += 1
+                else:
+                    tag_count[tag_name] = 1
+
+        top_tags = [k for k, v in sorted(tag_count.items(), key=lambda tag: tag[1], reverse=True)]
+        return top_tags[:3]
 
     class Meta:
         model = Course

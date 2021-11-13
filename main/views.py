@@ -11,13 +11,13 @@ from .utils import process_sso_profile, response, validateBody, validateParams
 from sso.decorators import with_sso_ui
 from sso.utils import get_logout_url
 from django.core import serializers
-from django.db.models import Count
+from django.db.models import Count, Prefetch
 from django.db import transaction
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .decorators import query_count
 from .models import Course, Review, Profile, ReviewLike, ReviewTag, Tag, Bookmark
-from .serializers import CourseSerializer, ReviewSerializer, TagSerializer, BookmarkSerializer
+from .serializers import CourseSerializer, CourseDetailSerializer, ReviewSerializer, TagSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
 import logging
@@ -102,16 +102,24 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 	search_fields = ['name', 'aliasName', 'description', 'code']
 	# filterset_fields = ['curriculums__name', 'tags__name', 'sks',
 	# 					'prerequisites__name']
-	# queryset = Course.objects.all()
 
 	def get_queryset(self):
-		return Course.objects.annotate(review_count=Count('review'))
+		return Course.objects.annotate(review_count=Count('reviews'))
 
-	@action(detail=False, methods=['GET'])
-	def get_courses(self, request):
+	def list(self, request, *args, **kwargs):
 		courses = self.get_queryset()
 		data = self.get_serializer(courses, many=True).data
-		return Response({'courses': data})
+		return response(data={'courses': data})
+
+	def retrieve(self, request, pk=None, *args, **kwargs):
+		courses = Course.objects.filter(id=pk).prefetch_related(
+			Prefetch('reviews', queryset=Review.objects.prefetch_related(
+				Prefetch('review_tags', queryset=ReviewTag.objects.select_related('tag'))
+				))
+			).get()
+		data = CourseDetailSerializer(courses, many=False).data
+
+		return response(data={'course': data})
 
 def create_review_tag(review, tags):
 	for i in tags:
@@ -275,11 +283,7 @@ def tag(request):
 	user = Profile.objects.get(username=str(request.user))
 
 	if request.method == 'GET':
-		if 'course' in request.GET:
-			tags = Tag.objects.filter(courses__id=request.GET['course'])
-		else:
-			tags = Tag.objects.all()
-
+		tags = Tag.objects.all()
 		return Response({'tags': TagSerializer(tags, many=True).data})
 
 	if request.method == 'POST':

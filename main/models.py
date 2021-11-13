@@ -24,7 +24,6 @@ class Course(models.Model):
     sks = models.PositiveSmallIntegerField()
     term = models.PositiveSmallIntegerField()
     prerequisites = models.CharField(max_length=512, blank=True)
-    tags = models.ManyToManyField(Tag, blank=True, related_name="courses")
 
     def __str__(self):
         return self.name
@@ -58,7 +57,7 @@ class Review(models.Model):
         REJECTED = 'REJECTED'
 
     user = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='reviews')
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
     academic_year = models.CharField(max_length=9)
@@ -81,7 +80,7 @@ class ReviewLike(models.Model):
     review = models.ForeignKey(Review, on_delete=CASCADE)
 
 class ReviewTag(models.Model):
-    review = models.ForeignKey(Review, on_delete=CASCADE)
+    review = models.ForeignKey(Review, on_delete=CASCADE, related_name='review_tags')
     tag = models.ForeignKey(Tag, on_delete=CASCADE)
 
 class Bookmark(models.Model):
