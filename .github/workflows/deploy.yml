@@ -1,0 +1,34 @@
+name: Deploy prod
+on:
+  push:
+    branches:
+    - deploy
+    
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    
+    - name: Checkout source code
+      uses: actions/checkout@v1
+
+    - name: Generate deployment package
+      run: zip -r deploy.zip . -x '*.git*'
+
+    - name: Declare some variables
+      id: vars
+      shell: bash
+      run: |
+        echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+      
+    - name: Deploy to EB
+      uses: einaregilsson/beanstalk-deploy@v16
+      with:
+        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        application_name: ulasbe
+        environment_name: ulasbe-prod
+        version_label: ${{ steps.vars.outputs.sha_short }}-prod
+        region: ap-southeast-1
+        deployment_package: deploy.zip
