@@ -17,7 +17,7 @@ from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .decorators import query_count
 from .models import Course, Review, Profile, ReviewLike, ReviewTag, Tag, Bookmark
-from .serializers import CourseSerializer, CourseDetailSerializer, ReviewSerializer, TagSerializer, BookmarkSerializer
+from .serializers import CourseSerializer, CourseDetailSerializer, ReviewDSSerializer, ReviewSerializer, TagSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
 import logging
@@ -215,6 +215,36 @@ def review(request):
 		review.delete()
 		return response(status=status.HTTP_200_OK)
 
+@api_view(['GET', 'POST'])
+def ds_review(request):
+	"""
+	Handle RU Review for DS.
+	Remember that this endpoint require Token Authorization. 
+    """
+	user = Profile.objects.get(username=str(request.user))
+
+	if request.method == 'GET':
+		reviews = Review.objects.filter(hate_speech_status='WAITING')
+		if reviews.exists():
+			return response(data=ReviewDSSerializer(reviews, many=True).data)
+		return response(data=[])
+
+	if request.method == 'POST':
+		reviews = request.data
+		try:
+			with transaction.atomic():
+				for rev in reviews:
+					review = Review.objects.get(id=rev.get('id'))
+					review.sentimen = rev.get('sentimen')
+					review.hate_speech_status = rev.get('hate_speech_status')
+					review.save()
+
+				return response()
+		except Exception as e:
+			logger.error("Failed to update review, request data {}".format(request.data))
+			return response(error="Failed to update review, error message: {}".format(e), status=status.HTTP_404_NOT_FOUND)
+
+
 @api_view(['POST'])
 def like(request):
 	"""
@@ -308,14 +338,10 @@ def tag(request):
 		tags = request.data.get("tags")
 		for tag in tags:
 			tag = tag.upper()
-			print(tag)
 			try:
 				tag_obj = Tag.objects.get(tag_name=tag)
-				print("masuk5")
 				tag_obj.delete()
-				print("masuk2")
 			except Exception as e:
-				print(e)
 				continue
 		return response(status=status.HTTP_200_OK)
 
