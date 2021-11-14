@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Course, Review, ReviewLike, Tag, Bookmark
+from .models import Course, Review, Tag, Bookmark
 
 # class CurriculumSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -8,10 +8,10 @@ from .models import Course, Review, ReviewLike, Tag, Bookmark
 #         fields = ['name', 'year']
 
 
-class TagSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Tag
-        fields = ['tag_name']
+# class TagSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Tag
+#         fields = ['tag_name']
 
 
 # class PrerequisiteSerializer(serializers.ModelSerializer):
