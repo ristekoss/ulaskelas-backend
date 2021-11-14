@@ -9,6 +9,7 @@ class Tag(models.Model):
     Tag for a review
     """
     tag_name = models.CharField(max_length=30)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.tag_name
@@ -66,6 +67,7 @@ class Review(models.Model):
     hate_speech_status = models.CharField(choices=HateSpeechStatus.choices, max_length=20)
     sentimen = models.PositiveSmallIntegerField(null=True)
     is_anonym = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
         ''' On save, update timestamps '''
