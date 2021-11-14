@@ -145,7 +145,7 @@ def review(request):
 		course = Course.objects.filter(code=code).first()
 		if course is None:
 			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
-		reviews = Review.objects.filter(course=course)
+		reviews = Review.objects.filter(course=course).filter(is_active=True)
 		if reviews.exists():
 			review_likes = ReviewLike.objects.filter(review__course=course)
 			review_tags = ReviewTag.objects.all()
@@ -212,7 +212,8 @@ def review(request):
 		review = Review.objects.filter(user=user, id=review_id).first()
 		if review is None:
 			return response(error="Review does not exist", status=status.HTTP_409_CONFLICT)
-		review.delete()
+		review.is_active = False
+		review.save()
 		return response(status=status.HTTP_200_OK)
 
 @api_view(['GET', 'POST'])
@@ -224,7 +225,7 @@ def ds_review(request):
 	user = Profile.objects.get(username=str(request.user))
 
 	if request.method == 'GET':
-		reviews = Review.objects.filter(hate_speech_status='WAITING')
+		reviews = Review.objects.filter(hate_speech_status='WAITING').filter(is_active=True)
 		if reviews.exists():
 			return response(data=ReviewDSSerializer(reviews, many=True).data)
 		return response(data=[])
@@ -339,9 +340,8 @@ def tag(request):
 		for tag in tags:
 			tag = tag.upper()
 			try:
-				tag_obj = Tag.objects.get(tag_name=tag)
-				tag_obj.delete()
-			except Exception as e:
+				Tag.objects.get(tag_name=tag).update(is_active=False)
+			except:
 				continue
 		return response(status=status.HTTP_200_OK)
 
