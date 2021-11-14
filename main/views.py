@@ -17,7 +17,7 @@ from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .decorators import query_count
 from .models import Course, Review, Profile, ReviewLike, ReviewTag, Tag, Bookmark
-from .serializers import CourseSerializer, CourseDetailSerializer, ReviewDSSerializer, ReviewSerializer, TagSerializer, BookmarkSerializer
+from .serializers import CourseSerializer, CourseDetailSerializer, ReviewDSSerializer, ReviewSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
 import logging
@@ -315,7 +315,10 @@ def tag(request):
 
 	if request.method == 'GET':
 		tags = Tag.objects.all()
-		return Response({'tags': TagSerializer(tags, many=True).data})
+		res_tags = []
+		for tag in tags:
+			res_tags.append(tag.tag_name)
+		return response(data = {'tags': res_tags})
 
 	if request.method == 'POST':
 		isValid = validateBody(request, ['tags'])
