@@ -222,8 +222,6 @@ def ds_review(request):
 	Handle RU Review for DS.
 	Remember that this endpoint require Token Authorization. 
     """
-	user = Profile.objects.get(username=str(request.user))
-
 	if request.method == 'GET':
 		reviews = Review.objects.filter(hate_speech_status='WAITING').filter(is_active=True)
 		if reviews.exists():
