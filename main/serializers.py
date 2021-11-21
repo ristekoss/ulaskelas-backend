@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Course, Review, ReviewLike, Tag, Bookmark
+from .models import Course, Review, Tag, Bookmark
 
 # class CurriculumSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -8,10 +8,10 @@ from .models import Course, Review, ReviewLike, Tag, Bookmark
 #         fields = ['name', 'year']
 
 
-class TagSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Tag
-        fields = ['tag_name']
+# class TagSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Tag
+#         fields = ['tag_name']
 
 
 # class PrerequisiteSerializer(serializers.ModelSerializer):
@@ -65,7 +65,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ('author','course_code','created_at','updated_at','academic_year',
+        fields = ('id', 'author','course_code','created_at','updated_at','academic_year',
         'semester','content','hate_speech_status','sentimen','is_anonym', 'tags', 'likes_by')
 
     def get_author(self, obj):
@@ -93,6 +93,11 @@ class ReviewSerializer(serializers.ModelSerializer):
         for tag in review_tags:
             tags.append(tag.tag.tag_name)
         return tags
+
+class ReviewDSSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Review
+        fields = ('id','content')
 
 class BookmarkSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField('get_user')

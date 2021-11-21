@@ -1,4 +1,4 @@
-from main.serializers import CurriculumSerializer, PrerequisiteSerializer, TagSerializer
+from main.serializers import CurriculumSerializer, PrerequisiteSerializer
 from django.test import TestCase
 from main.models import Course, Curriculum, Tag
 # Create your tests here.
@@ -13,21 +13,21 @@ class CurriculumSerializerTest(TestCase):
         self.assertEqual(serializer.data['year'], curriculum.year)
 
 
-class TagSerializerTest(TestCase):
-    def test_serialize_tag_with_category(self):
-        tag = Tag.objects.create(
-            name='Wajib Fakultas', category=Tag.Category.FACULTY)
-        serializer = TagSerializer(tag)
+# class TagSerializerTest(TestCase):
+#     def test_serialize_tag_with_category(self):
+#         tag = Tag.objects.create(
+#             name='Wajib Fakultas', category=Tag.Category.FACULTY)
+#         serializer = TagSerializer(tag)
 
-        self.assertEqual(serializer.data['name'], tag.name)
-        self.assertEqual(serializer.data['category'], tag.category)
+#         self.assertEqual(serializer.data['name'], tag.name)
+#         self.assertEqual(serializer.data['category'], tag.category)
 
-    def test_serialize_tag_without_category(self):
-        tag = Tag.objects.create(name='Wajib Fakultas')
-        serializer = TagSerializer(tag)
+#     def test_serialize_tag_without_category(self):
+#         tag = Tag.objects.create(name='Wajib Fakultas')
+#         serializer = TagSerializer(tag)
 
-        self.assertEqual(serializer.data['name'], tag.name)
-        self.assertEqual(serializer.data['category'], tag.category)
+#         self.assertEqual(serializer.data['name'], tag.name)
+#         self.assertEqual(serializer.data['category'], tag.category)
 
 
 class PrerequisiteSerializerTest(TestCase):

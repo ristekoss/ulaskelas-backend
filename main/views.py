@@ -17,7 +17,7 @@ from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .decorators import query_count
 from .models import Course, Review, Profile, ReviewLike, ReviewTag, Tag, Bookmark
-from .serializers import CourseSerializer, CourseDetailSerializer, ReviewSerializer, TagSerializer, BookmarkSerializer
+from .serializers import CourseSerializer, CourseDetailSerializer, ReviewDSSerializer, ReviewSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
 import logging
@@ -145,7 +145,7 @@ def review(request):
 		course = Course.objects.filter(code=code).first()
 		if course is None:
 			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
-		reviews = Review.objects.filter(course=course)
+		reviews = Review.objects.filter(course=course).filter(is_active=True)
 		if reviews.exists():
 			review_likes = ReviewLike.objects.filter(review__course=course)
 			review_tags = ReviewTag.objects.all()
@@ -212,8 +212,37 @@ def review(request):
 		review = Review.objects.filter(user=user, id=review_id).first()
 		if review is None:
 			return response(error="Review does not exist", status=status.HTTP_409_CONFLICT)
-		review.delete()
+		review.is_active = False
+		review.save()
 		return response(status=status.HTTP_200_OK)
+
+@api_view(['GET', 'POST'])
+def ds_review(request):
+	"""
+	Handle RU Review for DS.
+	Remember that this endpoint require Token Authorization. 
+    """
+	if request.method == 'GET':
+		reviews = Review.objects.filter(hate_speech_status='WAITING').filter(is_active=True)
+		if reviews.exists():
+			return response(data=ReviewDSSerializer(reviews, many=True).data)
+		return response(data=[])
+
+	if request.method == 'POST':
+		reviews = request.data
+		try:
+			with transaction.atomic():
+				for rev in reviews:
+					review = Review.objects.get(id=rev.get('id'))
+					review.sentimen = rev.get('sentimen')
+					review.hate_speech_status = rev.get('hate_speech_status')
+					review.save()
+
+				return response()
+		except Exception as e:
+			logger.error("Failed to update review, request data {}".format(request.data))
+			return response(error="Failed to update review, error message: {}".format(e), status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(['POST'])
 def like(request):
@@ -284,7 +313,10 @@ def tag(request):
 
 	if request.method == 'GET':
 		tags = Tag.objects.all()
-		return Response({'tags': TagSerializer(tags, many=True).data})
+		res_tags = []
+		for tag in tags:
+			res_tags.append(tag.tag_name)
+		return response(data = {'tags': res_tags})
 
 	if request.method == 'POST':
 		isValid = validateBody(request, ['tags'])
@@ -308,14 +340,9 @@ def tag(request):
 		tags = request.data.get("tags")
 		for tag in tags:
 			tag = tag.upper()
-			print(tag)
 			try:
-				tag_obj = Tag.objects.get(tag_name=tag)
-				print("masuk5")
-				tag_obj.delete()
-				print("masuk2")
-			except Exception as e:
-				print(e)
+				Tag.objects.get(tag_name=tag).update(is_active=False)
+			except:
 				continue
 		return response(status=status.HTTP_200_OK)
 

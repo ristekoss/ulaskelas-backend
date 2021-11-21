@@ -1,6 +1,6 @@
 # UlasKelas Backend
 
-Final Project's Backend of Mobile Development SIG 2020 using Django Rest Framework.
+Final Project's Backend of Mobile Development SIG 2021 using Django Rest Framework.
 
 
 
@@ -32,14 +32,20 @@ deactivate
 
 ### Run app dev
 
-1. change ./UlasKelas/.env.sample to ./UlasKelas/.env
+1. duplicate ./UlasKelas/.env.sample and rename to .env
 
 2. run postgres db
 ```bash
 docker-compose up -d
 ```
 
-3. run project
+3. activate env and install requirement
+```bash
+source env/bin/activate
+pip install -r requirements.txt
+```
+
+4. run project
 ```bash
 python manage.py runserver
 ```

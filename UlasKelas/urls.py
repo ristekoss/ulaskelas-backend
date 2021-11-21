@@ -16,6 +16,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from main import views
+from rest_framework.authtoken import views as views_token
 # from rest_framework.urlpatterns import format_suffix_patterns
 
 
@@ -25,6 +26,7 @@ urlpatterns = [
     path('sample-restricted/', views.restricted_sample_endpoint),
     path('login/', views.login),
     path('api/', include("main.urls")),
+    path('api-auth-token/', views_token.obtain_auth_token),
     path('token/', views.token, name='token'),
     path('logout/', views.logout),
     # path('api-auth/', include('rest_framework.urls'))
