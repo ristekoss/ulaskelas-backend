@@ -39,8 +39,15 @@ def sample_api(request):
     return Response({'message': message})
 
 
-# TODO: Refactor login, logout, token to viewset
+@api_view(['GET'])
+@permission_classes((permissions.AllowAny,))
+def ping(request):
+    """
+    Just ping.
+    """
+    return Response("pong")
 
+# TODO: Refactor login, logout, token to viewset
 @api_view(['GET', 'POST'])
 @permission_classes((permissions.AllowAny,))
 @with_sso_ui()

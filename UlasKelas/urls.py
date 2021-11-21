@@ -23,6 +23,7 @@ from rest_framework.authtoken import views as views_token
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('sample/', views.sample_api),
+    path('ping/', views.ping),
     path('sample-restricted/', views.restricted_sample_endpoint),
     path('login/', views.login),
     path('api/', include("main.urls")),
