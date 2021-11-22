@@ -36,8 +36,7 @@ DEBUG = True
 # DEBUG = False
 
 # TODO: Input prodcution URL
-ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1', '192.168.100.4',
-                 'ulaskelas-dev.ap-southeast-1.elasticbeanstalk.com']
+ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1', '172.31.30.38']
 
 # Application definition
 
