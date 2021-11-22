@@ -35,3 +35,4 @@ urlpatterns = [
     path('logout/', views.logout),
     # path('api-auth/', include('rest_framework.urls'))
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) # to import static in deployment
+# TODO: remove {+ static ...} and serve static on production server (aws)
