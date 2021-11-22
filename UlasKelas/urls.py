@@ -18,6 +18,9 @@ from django.urls import path, include
 from main import views
 from rest_framework.authtoken import views as views_token
 # from rest_framework.urlpatterns import format_suffix_patterns
+from django.conf import settings # to import static in deployment
+from django.conf.urls.static import static # to import static in deployment
+
 
 
 urlpatterns = [
@@ -31,4 +34,4 @@ urlpatterns = [
     path('token/', views.token, name='token'),
     path('logout/', views.logout),
     # path('api-auth/', include('rest_framework.urls'))
-]
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) # to import static in deployment
