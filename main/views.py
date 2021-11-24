@@ -27,15 +27,15 @@ logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
 @permission_classes((permissions.AllowAny,))
-def sample_api(request):
+def update_course(request):
     """
     Just an overly simple sample enpoint to call.
     """
-	# For testing and populate courses data
+	# For populate courses data
     courseApi.update_courses()
 	
     time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    message = 'API Call succeed on %s' % time
+    message = 'Course updated succeed on %s' % time
     return Response({'message': message})
 
 

@@ -1,5 +1,6 @@
 import requests
 from main.models import Course
+from django.conf import settings as django_settings
 
 def update_courses():
     print("UPDATE CALLED")
@@ -12,6 +13,7 @@ def update_courses():
 
 def _get_courses_json():
     url = 'https://3e081de5-8b4c-46ea-8736-99476c47204b.mock.pstmn.io/courses'
+    # url = django_settings.SUNJAD_BASE_URL + '/susunjadwal/api/courses'
 
     r = requests.get(url)
 

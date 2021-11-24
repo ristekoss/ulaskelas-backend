@@ -4,6 +4,7 @@ __all__ = []
 
 DEFAULTS = {
     "SSO_UI_URL": "https://sso.ui.ac.id/cas2/",
+    "SUNJAD_BASE_URL": "",
     "SSO_UI_FORCE_SERVICE_HTTPS": False,
 }
 
