@@ -32,10 +32,13 @@ def update_course(request):
     Just an overly simple sample enpoint to call.
     """
 	# For populate courses data
+    start = datetime.now()
     courseApi.update_courses()
+    finish = datetime.now()
 	
+    latency = (finish-start).seconds
     time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    message = 'Course updated succeed on %s' % time
+    message = 'Course updated succeed on %s, elapsed time: %s seconds' % (time, latency)
     return Response({'message': message})
 
 
@@ -82,24 +85,24 @@ def logout(request):
     return HttpResponseRedirect(get_logout_url(request))
 
 
-@api_view(['GET'])
-# Default permission for any endpoint: permissions.IsAuthenticated
-def restricted_sample_endpoint(request):
-    """
-    Simple sample enpoint that require Token Authorization.
-    """
-    message = 'If you can see this, it means you\'re already logged in.'
-    username = request.user.username
-    if hasattr(request.user, 'profile'):
-        profile = request.user.profile
-    else:
-        profile = None
-    # It's just quick hacks for temporary output.
-    # Should be used Django Rest Serializer instead.
-    profile_json = serializers.serialize('json', [profile])
-    return Response({'message': message,
-                     'username': username,
-                     'profile': profile_json})
+# @api_view(['GET'])
+# # Default permission for any endpoint: permissions.IsAuthenticated
+# def restricted_sample_endpoint(request):
+#     """
+#     Simple sample enpoint that require Token Authorization.
+#     """
+#     message = 'If you can see this, it means you\'re already logged in.'
+#     username = request.user.username
+#     if hasattr(request.user, 'profile'):
+#         profile = request.user.profile
+#     else:
+#         profile = None
+#     # It's just quick hacks for temporary output.
+#     # Should be used Django Rest Serializer instead.
+#     profile_json = serializers.serialize('json', [profile])
+#     return Response({'message': message,
+#                      'username': username,
+#                      'profile': profile_json})
 
 
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
