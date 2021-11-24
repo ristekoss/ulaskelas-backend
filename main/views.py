@@ -319,10 +319,8 @@ def tag(request):
 	Handle CR Tag.
 	Remember that this endpoint require Token Authorization. 
     """
-	user = Profile.objects.get(username=str(request.user))
-
 	if request.method == 'GET':
-		tags = Tag.objects.all()
+		tags = Tag.objects.filter(is_active=True)
 		res_tags = []
 		for tag in tags:
 			res_tags.append(tag.tag_name)
