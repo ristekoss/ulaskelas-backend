@@ -120,7 +120,7 @@ DATABASES = {
 sentry_sdk.init(
     dsn=env("SENTRY_DSN"),
     integrations=[DjangoIntegration()],
-    traces_sample_rate=0.7,
+    traces_sample_rate=0.2,
     send_default_pii=True
 )
 
