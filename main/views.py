@@ -33,23 +33,15 @@ def update_course(request):
 	"""
 	Just an overly simple sample enpoint to call.
 	"""
-	# # For populate courses data
-	# start = datetime.now()
-	# courseApi.update_courses()
-	# finish = datetime.now()
+	# For populate courses data
+	start = datetime.now()
+	courseApi.update_courses()
+	finish = datetime.now()
 
-	# latency = (finish-start).seconds
-	# time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-	# message = 'Course updated succeed on %s, elapsed time: %s seconds' % (time, latency)
-	# return Response({'message': message})
-	objs = get_config('kd_org')
-	print(objs["04.00.01.01"])
-	# for obj in objs:
-	# 	# obj = json.loads(obj)
-	# 	print(obj.educational_program)
-	# 	break
-	return Response({'result': get_config('kd_org')})
-
+	latency = (finish-start).seconds
+	time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+	message = 'Course updated succeed on %s, elapsed time: %s seconds' % (time, latency)
+	return Response({'message': message})
 
 @api_view(['GET'])
 @permission_classes((permissions.AllowAny,))

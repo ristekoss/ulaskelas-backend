@@ -4,6 +4,8 @@ from cas import CASClient
 from django.conf import settings as django_settings
 from six.moves import urllib_parse
 
+from live_config.views import get_config
+
 
 def normalize_username(username):
     return username.lower()
@@ -48,16 +50,14 @@ def authenticate(ticket, client):
 
 
 def get_additional_info(kd_org):
-    path = os.path.dirname(os.path.abspath(__file__))
-    filename = os.path.join(path, "additional-info.json")
-
-    with open(filename, "r") as fd:
-        as_json = json.load(fd)
-        if kd_org in as_json:
-            return as_json[kd_org]
-
+    list_kd_org = get_config('kd_org')
+    if list_kd_org == None:
+        return None
+    
+    if kd_org in list_kd_org:
+        return list_kd_org[kd_org]
+    
     return None
-
 
 def get_logout_url(request):
     service_url = get_service_url(request)
