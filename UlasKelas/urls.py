@@ -25,9 +25,8 @@ from django.conf.urls.static import static # to import static in deployment
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('sample/', views.sample_api),
+    path('update-course/', views.update_course),
     path('ping', views.ping),
-    path('sample-restricted/', views.restricted_sample_endpoint),
     path('login/', views.login),
     path('api/', include("main.urls")),
     path('api-auth-token/', views_token.obtain_auth_token),
@@ -35,3 +34,4 @@ urlpatterns = [
     path('logout/', views.logout),
     # path('api-auth/', include('rest_framework.urls'))
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) # to import static in deployment
+# TODO: remove {+ static ...} and serve static on production server (aws)

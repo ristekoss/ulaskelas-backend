@@ -38,16 +38,15 @@ def response(status = status.HTTP_200_OK, data = None, error = None):
 				}, status=status)
 
 def validateParams(request, params):
-		for param in params:
-			res = request.query_params.get(param)
-			if res is None:
-				return response(error="{} is required".format(param), status=status.HTTP_404_NOT_FOUND)
-		return None
+    for param in params:
+        res = request.query_params.get(param)
+        if res is None:
+            return response(error="{} is required".format(param), status=status.HTTP_404_NOT_FOUND)
+    return None
 	
 def validateBody(request, attrs):
     for attr in attrs:
         res = request.data.get(attr)
         if res is None:
-            print(res)
             return response(error="{} is required".format(attr), status=status.HTTP_404_NOT_FOUND)
     return None

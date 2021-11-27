@@ -32,8 +32,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = '-zrv7c0@3$c6#7e#ll!z94oy0=-2-e0eqvy4%so=!z3zw6k=da'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-# DEBUG = False
+DEBUG = env("DEBUG").lower() == 'true'
 
 # TODO: Input prodcution URL
 ALLOWED_HOSTS = ['*']
@@ -51,6 +50,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'main',
+    'live_config',
 ]
 
 MIDDLEWARE = [
