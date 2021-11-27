@@ -139,6 +139,16 @@ def create_review_tag(review, tags):
 		ReviewTag.objects.create(review = review, tag = tag_obj)
 		return None
 
+def get_review_by_id(request):
+	id = request.query_params.get("id")
+	review = Review.objects.filter(id=id).filter(is_active=True).first()
+	if review == None:
+		return response(error="Review ID not found", status=status.HTTP_404_NOT_FOUND)
+
+	review_likes = ReviewLike.objects.filter(review__id=id)
+	review_tags = ReviewTag.objects.all()
+	return response(data=ReviewSerializer(review, context={'review_likes': review_likes, 'review_tags':review_tags}).data)
+
 @api_view(['GET', 'PUT', 'POST','DELETE'])
 def review(request):
 	"""
@@ -148,6 +158,10 @@ def review(request):
 	user = Profile.objects.get(username=str(request.user))
 
 	if request.method == 'GET':
+		isById = validateParams(request, ['id'])
+		if isById == None:
+			return get_review_by_id(request)
+		
 		isValid = validateParams(request, ['course_code'])
 		if isValid != None:
 			return isValid
