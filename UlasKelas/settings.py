@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'main',
+    'live_config',
 ]
 
 MIDDLEWARE = [

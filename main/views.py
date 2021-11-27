@@ -1,4 +1,6 @@
+import json
 from django_filters.rest_framework.backends import DjangoFilterBackend
+from live_config.views import get_config
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
 from rest_framework.fields import CreateOnlyDefault
@@ -28,19 +30,17 @@ logger = logging.getLogger(__name__)
 @api_view(['GET'])
 @permission_classes((permissions.AllowAny,))
 def update_course(request):
-    """
-    Just an overly simple sample enpoint to call.
-    """
-	# For populate courses data
-    start = datetime.now()
-    courseApi.update_courses()
-    finish = datetime.now()
-	
-    latency = (finish-start).seconds
-    time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    message = 'Course updated succeed on %s, elapsed time: %s seconds' % (time, latency)
-    return Response({'message': message})
+	"""
+	For populate courses data
+	"""
+	start = datetime.now()
+	courseApi.update_courses()
+	finish = datetime.now()
 
+	latency = (finish-start).seconds
+	time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+	message = 'Course updated succeed on %s, elapsed time: %s seconds' % (time, latency)
+	return Response({'message': message})
 
 @api_view(['GET'])
 @permission_classes((permissions.AllowAny,))
@@ -138,6 +138,16 @@ def create_review_tag(review, tags):
 		ReviewTag.objects.create(review = review, tag = tag_obj)
 		return None
 
+def get_review_by_id(request):
+	id = request.query_params.get("id")
+	review = Review.objects.filter(id=id).filter(is_active=True).first()
+	if review == None:
+		return response(error="Review ID not found", status=status.HTTP_404_NOT_FOUND)
+
+	review_likes = ReviewLike.objects.filter(review__id=id)
+	review_tags = ReviewTag.objects.all()
+	return response(data=ReviewSerializer(review, context={'review_likes': review_likes, 'review_tags':review_tags}).data)
+
 @api_view(['GET', 'PUT', 'POST','DELETE'])
 def review(request):
 	"""
@@ -147,6 +157,10 @@ def review(request):
 	user = Profile.objects.get(username=str(request.user))
 
 	if request.method == 'GET':
+		isById = validateParams(request, ['id'])
+		if isById == None:
+			return get_review_by_id(request)
+		
 		isValid = validateParams(request, ['course_code'])
 		if isValid != None:
 			return isValid
