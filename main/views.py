@@ -1,4 +1,6 @@
+import json
 from django_filters.rest_framework.backends import DjangoFilterBackend
+from live_config.views import get_config
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
 from rest_framework.fields import CreateOnlyDefault
@@ -28,18 +30,25 @@ logger = logging.getLogger(__name__)
 @api_view(['GET'])
 @permission_classes((permissions.AllowAny,))
 def update_course(request):
-    """
-    Just an overly simple sample enpoint to call.
-    """
-	# For populate courses data
-    start = datetime.now()
-    courseApi.update_courses()
-    finish = datetime.now()
-	
-    latency = (finish-start).seconds
-    time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    message = 'Course updated succeed on %s, elapsed time: %s seconds' % (time, latency)
-    return Response({'message': message})
+	"""
+	Just an overly simple sample enpoint to call.
+	"""
+	# # For populate courses data
+	# start = datetime.now()
+	# courseApi.update_courses()
+	# finish = datetime.now()
+
+	# latency = (finish-start).seconds
+	# time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+	# message = 'Course updated succeed on %s, elapsed time: %s seconds' % (time, latency)
+	# return Response({'message': message})
+	objs = get_config('kd_org')
+	print(objs["04.00.01.01"])
+	# for obj in objs:
+	# 	# obj = json.loads(obj)
+	# 	print(obj.educational_program)
+	# 	break
+	return Response({'result': get_config('kd_org')})
 
 
 @api_view(['GET'])
