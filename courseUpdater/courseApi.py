@@ -13,7 +13,8 @@ def update_courses():
 
 def _get_courses_json():
     url = 'https://3e081de5-8b4c-46ea-8736-99476c47204b.mock.pstmn.io/courses'
-    # url = django_settings.SUNJAD_BASE_URL + '/susunjadwal/api/courses'
+    # url = django_settings.SUNJAD_BASE_URL + 'susunjadwal/api/courses'
+    print(url)
 
     r = requests.get(url)
 
