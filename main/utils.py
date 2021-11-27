@@ -48,6 +48,5 @@ def validateBody(request, attrs):
     for attr in attrs:
         res = request.data.get(attr)
         if res is None:
-            print(res)
             return response(error="{} is required".format(attr), status=status.HTTP_404_NOT_FOUND)
     return None

@@ -31,9 +31,8 @@ logger = logging.getLogger(__name__)
 @permission_classes((permissions.AllowAny,))
 def update_course(request):
 	"""
-	Just an overly simple sample enpoint to call.
+	For populate courses data
 	"""
-	# For populate courses data
 	start = datetime.now()
 	courseApi.update_courses()
 	finish = datetime.now()
