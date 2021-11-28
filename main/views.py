@@ -19,7 +19,7 @@ from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .decorators import query_count
 from .models import Course, Review, Profile, ReviewLike, ReviewTag, Tag, Bookmark
-from .serializers import CourseSerializer, CourseDetailSerializer, ReviewDSSerializer, ReviewSerializer, BookmarkSerializer
+from .serializers import AccountSerializer, CourseSerializer, CourseDetailSerializer, ReviewDSSerializer, ReviewSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
 import logging
@@ -380,3 +380,12 @@ def tag(request):
 # 		return Response({'update': 'success'})
 # 	except:
 # 		return Response({'update': 'failed'})
+
+@api_view(['GET'])
+def account(request):
+	"""
+	Return current user's data
+	Remember that this endpoint require Token Authorization. 
+    """
+	user = Profile.objects.get(username=str(request.user))
+	return response(data=AccountSerializer(user, many=False).data)
