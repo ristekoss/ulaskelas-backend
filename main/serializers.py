@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Course, Review, Tag, Bookmark
+from .models import Course, Profile, Review, Tag, Bookmark
 
 # class CurriculumSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -112,3 +112,8 @@ class BookmarkSerializer(serializers.ModelSerializer):
     
     def get_course(self, obj):
         return obj.course.code
+
+class AccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = '__all__'
