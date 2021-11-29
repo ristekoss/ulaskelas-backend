@@ -56,24 +56,22 @@ def ping(request):
 @permission_classes((permissions.AllowAny,))
 @with_sso_ui()
 def login(request, sso_profile):
-    """
-    Handle SSO UI login.
-    Create a new user & profile if it doesn't exists
-    and return token if SSO login suceed.
-    """
-    if sso_profile is not None:
-        redirect_url = request.query_params.get("redirect_url")
-        token = process_sso_profile(sso_profile)
-        username = sso_profile['username']
-        if redirect_url is None:
-            return HttpResponseRedirect(
-                '/token?token=%s&username=%s' % (token, username))
-        else:
-            return redirect(
-                '%s?token=%s&username=%s' % (redirect_url, token, username))
+	"""
+	Handle SSO UI login.
+	Create a new user & profile if it doesn't exists
+	and return token if SSO login suceed.
+	"""
+	if sso_profile is not None:
+		redirect_url = request.query_params.get("redirect_url")
+		token = process_sso_profile(sso_profile)
+		username = sso_profile['username']
+		if redirect_url is None:
+			return HttpResponseRedirect(
+				'/token?token=%s&username=%s' % (token, username))
+		return redirect('%s?token=%s&username=%s' % (redirect_url, token, username))
 			
-    data = {'message': 'invalid sso'}
-    return Response(data=data, status=status.HTTP_401_UNAUTHORIZED)
+	data = {'message': 'invalid sso'}
+	return Response(data=data, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['GET'])
