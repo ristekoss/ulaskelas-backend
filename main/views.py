@@ -22,6 +22,7 @@ from .models import Course, Review, Profile, ReviewLike, ReviewTag, Tag, Bookmar
 from .serializers import CourseSerializer, CourseDetailSerializer, ReviewDSSerializer, ReviewSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
+from django.shortcuts import redirect
 import logging
 
 
@@ -61,10 +62,11 @@ def login(request, sso_profile):
     and return token if SSO login suceed.
     """
     if sso_profile is not None:
+        redirect_url = request.query_params.get("redirect_url")
         token = process_sso_profile(sso_profile)
         username = sso_profile['username']
-        return HttpResponseRedirect(
-            '/token?token=%s&username=%s' % (token, username))
+        return redirect(
+            '%s?token=%s&username=%s' % (redirect_url, token, username))
 			
     data = {'message': 'invalid sso'}
     return Response(data=data, status=status.HTTP_401_UNAUTHORIZED)
