@@ -12,6 +12,8 @@ def with_sso_ui(force_login=True):
             redirect_url = request.GET.get("redirect_url")
             service_url = get_service_url(request)
             client = get_cas_client('%s?redirect_url=%s' % (service_url, redirect_url))
+            if redirect_url is None:
+                client = get_cas_client(service_url)
             login_url = client.get_login_url()
 
             ticket = request.GET.get("ticket")
