@@ -34,7 +34,6 @@ SECRET_KEY = '-zrv7c0@3$c6#7e#ll!z94oy0=-2-e0eqvy4%so=!z3zw6k=da'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG").lower() == 'true'
 
-# TODO: Input prodcution URL
 ALLOWED_HOSTS = ['*']
 
 # Application definition
