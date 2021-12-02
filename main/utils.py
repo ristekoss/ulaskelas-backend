@@ -29,6 +29,7 @@ def generate_user_profile(user, sso_profile):
         faculty=attr['faculty'],
         study_program=attr['study_program'],
         educational_program=attr['educational_program'],
+        is_blocked=False,
     )
 
 def response(status = status.HTTP_200_OK, data = None, error = None):
