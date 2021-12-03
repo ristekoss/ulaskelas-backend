@@ -42,6 +42,7 @@ class Profile(models.Model):
     educational_program = models.CharField(max_length=63)
     role = models.CharField(max_length=63)
     org_code = models.CharField(max_length=63)
+    is_blocked = models.BooleanField(default=False)
 
 
 class Review(models.Model):

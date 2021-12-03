@@ -19,9 +19,10 @@ from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .decorators import query_count
 from .models import Course, Review, Profile, ReviewLike, ReviewTag, Tag, Bookmark
-from .serializers import CourseSerializer, CourseDetailSerializer, ReviewDSSerializer, ReviewSerializer, BookmarkSerializer
+from .serializers import AccountSerializer, CourseSerializer, CourseDetailSerializer, ReviewDSSerializer, ReviewSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
+from django.shortcuts import redirect
 import logging
 
 
@@ -55,19 +56,22 @@ def ping(request):
 @permission_classes((permissions.AllowAny,))
 @with_sso_ui()
 def login(request, sso_profile):
-    """
-    Handle SSO UI login.
-    Create a new user & profile if it doesn't exists
-    and return token if SSO login suceed.
-    """
-    if sso_profile is not None:
-        token = process_sso_profile(sso_profile)
-        username = sso_profile['username']
-        return HttpResponseRedirect(
-            '/token?token=%s&username=%s' % (token, username))
+	"""
+	Handle SSO UI login.
+	Create a new user & profile if it doesn't exists
+	and return token if SSO login suceed.
+	"""
+	if sso_profile is not None:
+		redirect_url = request.query_params.get("redirect_url")
+		token = process_sso_profile(sso_profile)
+		username = sso_profile['username']
+		if redirect_url is None:
+			return HttpResponseRedirect(
+				'/token?token=%s&username=%s' % (token, username))
+		return redirect('%s?token=%s&username=%s' % (redirect_url, token, username))
 			
-    data = {'message': 'invalid sso'}
-    return Response(data=data, status=status.HTTP_401_UNAUTHORIZED)
+	data = {'message': 'invalid sso'}
+	return Response(data=data, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['GET'])
@@ -380,3 +384,12 @@ def tag(request):
 # 		return Response({'update': 'success'})
 # 	except:
 # 		return Response({'update': 'failed'})
+
+@api_view(['GET'])
+def account(request):
+	"""
+	Return current user's data
+	Remember that this endpoint require Token Authorization. 
+    """
+	user = Profile.objects.get(username=str(request.user))
+	return response(data=AccountSerializer(user, many=False).data)

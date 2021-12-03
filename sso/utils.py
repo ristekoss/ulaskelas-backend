@@ -52,11 +52,23 @@ def authenticate(ticket, client):
 def get_additional_info(kd_org):
     list_kd_org = get_config('kd_org')
     if list_kd_org == None:
-        return None
+        return get_additional_info_local(kd_org)
     
     if kd_org in list_kd_org:
         return list_kd_org[kd_org]
     
+    return None
+
+
+def get_additional_info_local(kd_org):
+    path = os.path.dirname(os.path.abspath(__file__))
+    filename = os.path.join(path, "additional-info.json")
+
+    with open(filename, "r") as fd:
+        as_json = json.load(fd)
+        if kd_org in as_json:
+            return as_json[kd_org]
+
     return None
 
 def get_logout_url(request):

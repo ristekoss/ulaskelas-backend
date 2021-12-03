@@ -34,7 +34,6 @@ SECRET_KEY = '-zrv7c0@3$c6#7e#ll!z94oy0=-2-e0eqvy4%so=!z3zw6k=da'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG").lower() == 'true'
 
-# TODO: Input prodcution URL
 ALLOWED_HOSTS = ['*']
 
 # Application definition
@@ -164,11 +163,11 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'static'),
-)
+# STATICFILES_DIRS = (
+#     os.path.join(BASE_DIR, 'static'),
+# )
 
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 CORS_ALLOW_HEADERS = list(defaults.default_headers) + [
     "Access-Control-Expose-Headers",
