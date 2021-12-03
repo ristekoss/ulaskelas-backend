@@ -1,4 +1,5 @@
 import datetime
+import functools
 import json
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from live_config.views import get_config
@@ -120,6 +121,17 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 	def get_queryset(self):
 		return Course.objects.annotate(review_count=Count('reviews'))
 
+	def filter_by_study_program(self, courses, study_program):
+		if 'Ilmu Komputer' in study_program or 'Computer Science' in study_program:
+			study_program = 'IK'
+		elif 'Sistem Informasi' in study_program or 'Information System' in study_program:
+			study_program = 'SI'
+			
+		course_prefixes = get_config('study_program_mapping')[study_program].split(',')
+		courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(code__contains=x) for x in course_prefixes]))
+
+		return courses
+
 	def list(self, request, *args, **kwargs):
 		courses = self.get_queryset()
 		error = None
@@ -143,22 +155,10 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 			# Filter by study program, if not provided, use user's study program
 			if 'study_program' in request.GET:
 				study_program = request.GET['study_program']
-
-				if study_program == 'IK':
-					study_program = 'Ilmu Komputer'
-				elif study_program == 'SI':
-					study_program = 'Sistem Informasi'
-
 			else:
 				study_program = profile.study_program
 
-			if 'Computer Science' in study_program or 'Ilmu Komputer' in study_program:
-				courses = courses.filter(Q(code__contains='CSC') | Q(code__contains='CSGE') | Q(code__contains='UIGE') | Q(code__contains='UIST'))
-			elif 'Information System' in study_program or 'Sistem Informasi' in study_program:
-				courses = courses.filter(Q(code__contains='CSI') | Q(code__contains='CSGE') | Q(code__contains='UIGE') | Q(code__contains='UIST'))
-			else:
-				courses = []
-				error = 'Study program not found'
+			courses = self.filter_by_study_program(courses, study_program)
 
 		data = self.get_serializer(courses, many=True).data
 		return response(data={'courses': data}, error=error)
