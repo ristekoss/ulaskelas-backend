@@ -126,9 +126,12 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 			study_program = 'IK'
 		elif 'Sistem Informasi' in study_program or 'Information System' in study_program:
 			study_program = 'SI'
-			
-		course_prefixes = get_config('study_program_mapping')[study_program].split(',')
-		courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(code__contains=x) for x in course_prefixes]))
+		
+		try:
+			course_prefixes = get_config('study_program_mapping')[study_program].split(',')
+			courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(code__contains=x) for x in course_prefixes]))
+		except KeyError:
+			return None
 
 		return courses
 
@@ -145,7 +148,7 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 				term = int(request.GET['term'])
 			else:
 				if 'term' in request.GET:
-					error = 'Term must be an integer'
+					error = 'Term must be an integer.'
 
 				term = ((dt.year % 100) - int(profile.npm[:2])) * 2
 				term += 0 if dt.month < 7 else 1
@@ -159,6 +162,9 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 				study_program = profile.study_program
 
 			courses = self.filter_by_study_program(courses, study_program)
+
+			if courses == None:
+				error = 'Study program not found.'
 
 		data = self.get_serializer(courses, many=True).data
 		return response(data={'courses': data}, error=error)
