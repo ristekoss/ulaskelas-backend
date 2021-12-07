@@ -108,7 +108,7 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 			study_program = 'SI'
 		
 		try:
-			course_prefixes = get_config('study_program_mapping')[study_program].split(',')
+			course_prefixes = get_config('study_program')[study_program].split(',')
 			courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(code__contains=x) for x in course_prefixes]))
 		except KeyError:
 			return None

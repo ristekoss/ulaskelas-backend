@@ -5,8 +5,6 @@ from django.conf import settings as django_settings
 from six.moves import urllib_parse
 
 from live_config.views import get_config
-from main.utils import get_default_config_filename
-
 
 def normalize_username(username):
     return username.lower()
@@ -44,32 +42,19 @@ def authenticate(ticket, client):
         return None
 
     if "kd_org" in attributes:
-        attributes.update(get_additional_info(attributes["kd_org"]) or {})
+        attributes.update(get_kd_org(attributes["kd_org"]) or {})
 
     sso_profile = {"username": username, "attributes": attributes}
     return sso_profile
 
 
-def get_additional_info(kd_org):
+def get_kd_org(kd_org):
     list_kd_org = get_config('kd_org')
-    if list_kd_org == None:
-        return get_additional_info_local(kd_org)
-    
     if kd_org in list_kd_org:
         return list_kd_org[kd_org]
     
     return None
 
-
-def get_additional_info_local(kd_org):
-    filename = get_default_config_filename("kd_org.json")
-
-    with open(filename, "r") as fd:
-        as_json = json.load(fd)
-        if kd_org in as_json:
-            return as_json[kd_org]
-
-    return None
 
 def get_logout_url(request):
     service_url = get_service_url(request)

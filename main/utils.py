@@ -52,8 +52,3 @@ def validateBody(request, attrs):
         if res is None:
             return response(error="{} is required".format(attr), status=status.HTTP_404_NOT_FOUND)
     return None
-
-def get_default_config_filename(filename):
-    path = os.path.dirname(os.path.abspath(__file__ + "/../"))
-    filename = os.path.join(path, "live_config/defaultConfig/{}".format(filename))
-    return filename
