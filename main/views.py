@@ -157,12 +157,9 @@ def get_reviews_by_author(request, user_id):
 	if reviews == None:
 		return response(error="No reviews found")
 
-	review_likes = ReviewLike.objects.filter(user__id=user_id)
+	review_likes = ReviewLike.objects.filter(review__user__id=user_id)
 	review_tags = ReviewTag.objects.all()
-	return response(data=[
-		ReviewSerializer(review, context={'review_likes': review_likes, 'review_tags':review_tags}).data
-		for review in reviews
-	])
+	return response(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes, 'review_tags':review_tags}).data)
 
 @api_view(['GET', 'PUT', 'POST','DELETE'])
 def review(request):
