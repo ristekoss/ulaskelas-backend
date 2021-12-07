@@ -1,7 +1,9 @@
 from django import conf
 from rest_framework import routers
 from django.urls import path, include
-from .views import CourseViewSet, ds_review, review, like, tag, bookmark, account
+from .views import like, tag, bookmark, account
+from .views_review import ds_review, review
+from .views_course import CourseViewSet
 
 router = routers.SimpleRouter()
 router.register("courses", CourseViewSet, basename="courses")
