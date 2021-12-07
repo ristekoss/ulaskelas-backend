@@ -69,6 +69,7 @@ def response_paged(status = status.HTTP_200_OK, data = None, error = None, total
 				}, status=status)
 
 def get_paged_obj(objs, page):
+    objs = objs.order_by('id')
     paginator = Paginator(objs, 10)
     objs = paginator.get_page(page)
     return objs, paginator.num_pages
