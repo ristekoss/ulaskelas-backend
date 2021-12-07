@@ -6,7 +6,6 @@ def get_local_json(filename):
     filename = os.path.join(path, "defaultConfig/{}".format(filename))
 
     try:
-        # TODO: test
         fd = open(filename, "r")
         as_json = json.load(fd)
         return as_json
