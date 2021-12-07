@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from datetime import datetime
-from .utils import process_sso_profile, response, validate_body
+from .utils import get_paged_obj, process_sso_profile, response, response_paged, validate_body
 from sso.decorators import with_sso_ui
 from sso.utils import get_logout_url
 
@@ -111,7 +111,11 @@ def like(request):
 def bookmark(request):
 	user = Profile.objects.get(username=str(request.user))
 	if request.method == 'GET':
+		page = request.query_params.get("page")
 		bookmarks = Bookmark.objects.filter(user=user)
+		if page != None:
+			bookmarks, total_page = get_paged_obj(bookmarks, page)
+			return response_paged(data=BookmarkSerializer(bookmarks, many=True).data, total_page=total_page)
 		return response(data=BookmarkSerializer(bookmarks, many=True).data)
 
 	if request.method == 'POST':
@@ -143,8 +147,14 @@ def tag(request):
 	Remember that this endpoint require Token Authorization. 
     """
 	if request.method == 'GET':
+		page = request.query_params.get("page")
 		tags = Tag.objects.filter(is_active=True)
 		res_tags = []
+		if page != None:
+			tags, total_page = get_paged_obj(tags, page)
+			for tag in tags:
+				res_tags.append(tag.tag_name)
+			return response_paged(data = {'tags': res_tags}, total_page=total_page)
 		for tag in tags:
 			res_tags.append(tag.tag_name)
 		return response(data = {'tags': res_tags})
