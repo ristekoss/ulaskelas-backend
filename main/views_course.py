@@ -3,7 +3,7 @@ from django_filters.rest_framework.backends import DjangoFilterBackend
 from live_config.views import get_config
 from rest_framework.filters import SearchFilter
 from rest_framework import viewsets
-from .utils import get_profile_term, response
+from .utils import get_paged_obj, get_profile_term, response, response_paged
 from django.db.models import Count, Prefetch, Q
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
@@ -44,9 +44,15 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 
 			if courses == None:
 				error = 'Study program not found.'
-
+		
+		if not 'page' in request.GET:
+			data = self.get_serializer(courses, many=True).data
+			return response(data={'courses': data}, error=error)
+		
+		page = request.GET['page']
+		courses, total_page = get_paged_obj(courses, page)
 		data = self.get_serializer(courses, many=True).data
-		return response(data={'courses': data}, error=error)
+		return response_paged(data={'courses': data}, error=error, total_page=total_page)
 
 	def retrieve(self, request, pk=None, *args, **kwargs):
 		courses = Course.objects.filter(id=pk).prefetch_related(
