@@ -5,6 +5,7 @@ from django.conf import settings as django_settings
 from six.moves import urllib_parse
 
 from live_config.views import get_config
+from main.utils import get_default_config_filename
 
 
 def normalize_username(username):
@@ -61,8 +62,7 @@ def get_additional_info(kd_org):
 
 
 def get_additional_info_local(kd_org):
-    path = os.path.dirname(os.path.abspath(__file__))
-    filename = os.path.join(path, "additional-info.json")
+    filename = get_default_config_filename("kd_org.json")
 
     with open(filename, "r") as fd:
         as_json = json.load(fd)
