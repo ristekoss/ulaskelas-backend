@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
@@ -32,6 +33,12 @@ def generate_user_profile(user, sso_profile):
         educational_program=attr['educational_program'],
         is_blocked=False,
     )
+
+def get_profile_term(profile):
+		dt = datetime.today()
+		term = ((dt.year % 100) - int(profile.npm[:2])) * 2
+		term += 0 if dt.month < 7 else 1
+		return term
 
 def response(status = status.HTTP_200_OK, data = None, error = None):
     return Response({

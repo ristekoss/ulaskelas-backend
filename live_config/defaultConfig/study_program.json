@@ -1,4 +1,6 @@
 {
-  "IK": "CSC,CSGE,UIGE,UIST",
-  "SI": "CSI,CSGE,UIGE,UIST"
+  "Ilmu Komputer (Computer Science - Intl)": "CSC,CSGE,UIGE,UIST",
+  "Ilmu Komputer (Computer Science)": "CSC,CSGE,UIGE,UIST",
+  "Sistem Informasi (Information System)": "CSI,CSGE,UIGE,UIST",
+  "Sistem Informasi - Ekstensi (Information Systems - Ext)": "CSI,CSGE,UIGE,UIST"
 }
