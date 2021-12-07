@@ -152,6 +152,18 @@ def get_review_by_id(request):
 	review_tags = ReviewTag.objects.all()
 	return response(data=ReviewSerializer(review, context={'review_likes': review_likes, 'review_tags':review_tags}).data)
 
+def get_reviews_by_author(request, user_id):
+	reviews = Review.objects.filter(user=user_id).filter(is_active=True).all()
+	if reviews == None:
+		return response(error="No reviews found")
+
+	review_likes = ReviewLike.objects.filter(user__id=user_id)
+	review_tags = ReviewTag.objects.all()
+	return response(data=[
+		ReviewSerializer(review, context={'review_likes': review_likes, 'review_tags':review_tags}).data
+		for review in reviews
+	])
+
 @api_view(['GET', 'PUT', 'POST','DELETE'])
 def review(request):
 	"""
@@ -165,11 +177,10 @@ def review(request):
 		if isById == None:
 			return get_review_by_id(request)
 		
-		isValid = validateParams(request, ['course_code'])
-		if isValid != None:
-			return isValid
 		code = request.query_params.get("course_code")
-		
+		if code == None:
+			return get_reviews_by_author(request, user.id)
+
 		course = Course.objects.filter(code=code).first()
 		if course is None:
 			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
