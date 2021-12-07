@@ -2,6 +2,7 @@ import datetime
 import functools
 import json
 from django_filters.rest_framework.backends import DjangoFilterBackend
+from django.core.paginator import Paginator
 from live_config.views import get_config
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
@@ -11,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.filters import SearchFilter
 from rest_framework import viewsets
 from datetime import datetime
-from .utils import get_profile_term, process_sso_profile, response, validateBody, validateParams
+from .utils import get_paged_obj, get_profile_term, process_sso_profile, response, response_paged, validate_body, validate_params
 from sso.decorators import with_sso_ui
 from sso.utils import get_logout_url
 from django.core import serializers
@@ -152,14 +153,15 @@ def get_review_by_id(request):
 	review_tags = ReviewTag.objects.all()
 	return response(data=ReviewSerializer(review, context={'review_likes': review_likes, 'review_tags':review_tags}).data)
 
-def get_reviews_by_author(request, user_id):
+def get_reviews_by_author(request, user_id, page):
 	reviews = Review.objects.filter(user=user_id).filter(is_active=True).all()
 	if reviews == None:
-		return response(error="No reviews found")
-
+		return response_paged(error="No reviews found")
+	reviews, total_page = get_paged_obj(reviews, page)
 	review_likes = ReviewLike.objects.filter(review__user__id=user_id)
 	review_tags = ReviewTag.objects.all()
-	return response(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes, 'review_tags':review_tags}).data)
+	return response_paged(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes, 'review_tags':review_tags}).data, 
+		total_page=total_page)
 
 @api_view(['GET', 'PUT', 'POST','DELETE'])
 def review(request):
@@ -170,28 +172,37 @@ def review(request):
 	user = Profile.objects.get(username=str(request.user))
 
 	if request.method == 'GET':
-		isById = validateParams(request, ['id'])
+		isById = validate_params(request, ['id'])
 		if isById == None:
 			return get_review_by_id(request)
+
+		error = validate_params(request, ['page'])
+		if error != None:
+			return error
+		
+		page = int(request.query_params.get("page"))
 		
 		code = request.query_params.get("course_code")
 		if code == None:
-			return get_reviews_by_author(request, user.id)
+			return get_reviews_by_author(request, user.id, page)
 
 		course = Course.objects.filter(code=code).first()
 		if course is None:
-			return response(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+			return response_paged(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+
 		reviews = Review.objects.filter(course=course).filter(is_active=True)
 		if reviews.exists():
+			reviews, total_page = get_paged_obj(reviews, page)
 			review_likes = ReviewLike.objects.filter(review__course=course)
 			review_tags = ReviewTag.objects.all()
-			return response(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes, 'review_tags':review_tags}).data)
-		return response(data=[])
+			return response_paged(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes, 'review_tags':review_tags}).data, 
+				total_page=total_page)
+		return response_paged(data=[])
 
 	if request.method == 'POST':
-		isValid = validateBody(request, ['course_code', 'academic_year', 'semester', 'content', 'is_anonym', 'tags'])
-		if isValid != None:
-			return isValid
+		is_valid = validate_body(request, ['course_code', 'academic_year', 'semester', 'content', 'is_anonym', 'tags'])
+		if is_valid != None:
+			return is_valid
 		
 		course = Course.objects.filter(code=request.data.get("course_code")).first()
 		if course is None:
@@ -222,9 +233,9 @@ def review(request):
 		
 
 	if request.method == 'PUT':
-		isValid = validateBody(request, ['review_id', 'content'])
-		if isValid != None:
-			return isValid
+		is_valid = validate_body(request, ['review_id', 'content'])
+		if is_valid != None:
+			return is_valid
 
 		review_id = request.data.get("review_id")
 		content = request.data.get("content")
@@ -239,9 +250,9 @@ def review(request):
 		return response(data=ReviewSerializer(review).data, status=status.HTTP_201_CREATED)
 	
 	if request.method == 'DELETE':
-		isValid = validateParams(request, ['review_id'])
-		if isValid != None:
-			return isValid
+		is_valid = validate_params(request, ['review_id'])
+		if is_valid != None:
+			return is_valid
 
 		review_id = request.query_params.get("review_id")
 		
@@ -289,9 +300,9 @@ def like(request):
 	user = Profile.objects.get(username=str(request.user))
 
 	if request.method == 'POST':
-		isValid = validateBody(request, ['review_id', 'is_like'])
-		if isValid != None:
-			return isValid
+		is_valid = validate_body(request, ['review_id', 'is_like'])
+		if is_valid != None:
+			return is_valid
 		
 		review_id = request.data.get("review_id")
 		is_like = request.data.get("is_like")
@@ -318,9 +329,9 @@ def bookmark(request):
 		return response(data=BookmarkSerializer(bookmarks, many=True).data)
 
 	if request.method == 'POST':
-		isValid = validateBody(request, ['course_code', 'is_bookmark'])
-		if isValid != None:
-			return isValid
+		is_valid = validate_body(request, ['course_code', 'is_bookmark'])
+		if is_valid != None:
+			return is_valid
 
 		course_code = request.data.get("course_code")
 		is_bookmark = request.data.get("is_bookmark")
@@ -353,9 +364,9 @@ def tag(request):
 		return response(data = {'tags': res_tags})
 
 	if request.method == 'POST':
-		isValid = validateBody(request, ['tags'])
-		if isValid != None:
-			return isValid
+		is_valid = validate_body(request, ['tags'])
+		if is_valid != None:
+			return is_valid
 		
 		tags = request.data.get("tags")
 		for tag in tags:
@@ -367,9 +378,9 @@ def tag(request):
 		return response(status=status.HTTP_201_CREATED)
 	
 	if request.method == 'DELETE':
-		isValid = validateBody(request, ['tags'])
-		if isValid != None:
-			return isValid
+		is_valid = validate_body(request, ['tags'])
+		if is_valid != None:
+			return is_valid
 		
 		tags = request.data.get("tags")
 		for tag in tags:

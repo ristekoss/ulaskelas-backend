@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 from django.contrib.auth.models import User
+from django.core.paginator import Paginator
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
@@ -46,16 +47,28 @@ def response(status = status.HTTP_200_OK, data = None, error = None):
 					"error": error,
 				}, status=status)
 
-def validateParams(request, params):
+def validate_params(request, params):
     for param in params:
         res = request.query_params.get(param)
         if res is None:
             return response(error="{} is required".format(param), status=status.HTTP_404_NOT_FOUND)
     return None
 	
-def validateBody(request, attrs):
+def validate_body(request, attrs):
     for attr in attrs:
         res = request.data.get(attr)
         if res is None:
             return response(error="{} is required".format(attr), status=status.HTTP_404_NOT_FOUND)
     return None
+
+def response_paged(status = status.HTTP_200_OK, data = None, error = None, total_page = 1):
+    return Response({
+					"data": data,
+					"total_page": total_page,
+					"error": error,
+				}, status=status)
+
+def get_paged_obj(objs, page):
+    paginator = Paginator(objs, 10)
+    objs = paginator.get_page(page)
+    return objs, paginator.num_pages
