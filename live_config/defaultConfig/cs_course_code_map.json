@@ -1,0 +1,48 @@
+{
+    "1-4":{
+        "UIGE":"Wajib UI",
+        "CSGE":"Wajib Fakultas",
+        "CSCM":"Wajib CS",
+        "CSIM":"Wajib IS",
+        "CSCE":"Peminatan CS",
+        "CSIE":"Peminatan IS"
+    },
+    "5": {
+        "1":"Jenjang KKNI 1",
+        "2":"Jenjang KKNI 2",
+        "3":"Jenjang KKNI 3",
+        "4":"Jenjang KKNI 4",
+        "5":"Jenjang KKNI 5",
+        "6":"Jenjang KKNI 6",
+        "7":"Jenjang KKNI 7",
+        "8":"Jenjang KKNI 8",
+        "9":"Jenjang KKNI 9"
+    },
+    "6":{
+        "0":"Bahasa Indonesia",
+        "1":"Bahasa Inggris",
+        "D":"Pendidikan Jarak Jauh"
+    },
+    "7":{
+        "1":"Tahun ke-1",
+        "2":"Tahun ke-2",
+        "3":"Tahun ke-3",
+        "4":"Tahun ke-4"
+    },
+    "8":{
+        "0":"Gasal dan/atau Genap",
+        "1":"Gasal",
+        "2":"Genap"
+    },
+    "9":{
+        "1": "Matemaka dan komputasi ilmiah",
+        "2": "Pemrograman dan rekayasa perangkat lunak",
+        "3": "Pengolahan informasi cerdas",
+        "4": "Komputasi dan algoritma",
+        "5": "Arsitektur dan infrastruktur",
+        "6": "Sistem perusahaan",
+        "7": "Teknologi informasi",
+        "8": "Sistem informasi dan aplikasi",
+        "9": "Kepribadian dan ketrampilan berkarya"
+    }
+}
