@@ -91,26 +91,6 @@ def logout(request):
     return HttpResponseRedirect(get_logout_url(request))
 
 
-# @api_view(['GET'])
-# # Default permission for any endpoint: permissions.IsAuthenticated
-# def restricted_sample_endpoint(request):
-#     """
-#     Simple sample enpoint that require Token Authorization.
-#     """
-#     message = 'If you can see this, it means you\'re already logged in.'
-#     username = request.user.username
-#     if hasattr(request.user, 'profile'):
-#         profile = request.user.profile
-#     else:
-#         profile = None
-#     # It's just quick hacks for temporary output.
-#     # Should be used Django Rest Serializer instead.
-#     profile_json = serializers.serialize('json', [profile])
-#     return Response({'message': message,
-#                      'username': username,
-#                      'profile': profile_json})
-
-
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 	serializer_class = CourseSerializer
 	filter_backends = [SearchFilter, DjangoFilterBackend]
@@ -424,18 +404,6 @@ def tag(request):
 				continue
 		return response(status=status.HTTP_200_OK)
 
-# @api_view(['GET'])
-# @permission_classes((permissions.AllowAny,))
-# def update_courses(request):
-# 	from courseUpdater.courseApi import update_courses
-# 	"""
-# 	Just an overly simple sample enpoint to call.
-# 	"""
-# 	try:
-# 		update_courses()
-# 		return Response({'update': 'success'})
-# 	except:
-# 		return Response({'update': 'failed'})
 
 @api_view(['GET'])
 def account(request):
