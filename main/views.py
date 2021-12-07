@@ -1,3 +1,5 @@
+import datetime
+import functools
 import json
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from live_config.views import get_config
@@ -13,7 +15,7 @@ from .utils import process_sso_profile, response, validateBody, validateParams
 from sso.decorators import with_sso_ui
 from sso.utils import get_logout_url
 from django.core import serializers
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Prefetch, Q
 from django.db import transaction
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
@@ -110,7 +112,6 @@ def logout(request):
 
 
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
-	permission_classes = [permissions.AllowAny]  # temprorary
 	serializer_class = CourseSerializer
 	filter_backends = [SearchFilter, DjangoFilterBackend]
 	search_fields = ['name', 'aliasName', 'description', 'code']
@@ -120,10 +121,53 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 	def get_queryset(self):
 		return Course.objects.annotate(review_count=Count('reviews'))
 
+	def filter_by_study_program(self, courses, study_program):
+		if 'Ilmu Komputer' in study_program or 'Computer Science' in study_program:
+			study_program = 'IK'
+		elif 'Sistem Informasi' in study_program or 'Information System' in study_program:
+			study_program = 'SI'
+		
+		try:
+			course_prefixes = get_config('study_program_mapping')[study_program].split(',')
+			courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(code__contains=x) for x in course_prefixes]))
+		except KeyError:
+			return None
+
+		return courses
+
 	def list(self, request, *args, **kwargs):
 		courses = self.get_queryset()
+		error = None
+
+		if not ('show_all' in request.GET and request.GET['show_all'].lower() == 'true'):
+			profile = request.user.profile_set.get()
+			dt = datetime.today()
+
+			# Filter by term, if not provided, use user's term
+			if 'term' in request.GET and request.GET['term'].isnumeric():
+				term = int(request.GET['term'])
+			else:
+				if 'term' in request.GET:
+					error = 'Term must be an integer.'
+
+				term = ((dt.year % 100) - int(profile.npm[:2])) * 2
+				term += 0 if dt.month < 7 else 1
+
+			courses = courses.filter(term=term)
+
+			# Filter by study program, if not provided, use user's study program
+			if 'study_program' in request.GET:
+				study_program = request.GET['study_program']
+			else:
+				study_program = profile.study_program
+
+			courses = self.filter_by_study_program(courses, study_program)
+
+			if courses == None:
+				error = 'Study program not found.'
+
 		data = self.get_serializer(courses, many=True).data
-		return response(data={'courses': data})
+		return response(data={'courses': data}, error=error)
 
 	def retrieve(self, request, pk=None, *args, **kwargs):
 		courses = Course.objects.filter(id=pk).prefetch_related(
