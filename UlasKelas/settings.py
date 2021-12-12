@@ -174,7 +174,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static")
 CORS_ALLOW_HEADERS = list(defaults.default_headers) + [
     "Access-Control-Expose-Headers",
 ]
-# print(CORS_ALLOW_HEADERS)
 
 CORS_EXPOSE_HEADERS = ["Content-Disposition", "Access-Control-Allow-Origin"]
 
