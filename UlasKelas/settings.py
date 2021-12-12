@@ -177,5 +177,5 @@ CORS_ALLOW_HEADERS = list(defaults.default_headers) + [
 
 CORS_EXPOSE_HEADERS = ["Content-Disposition", "Access-Control-Allow-Origin"]
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_ALL_ORIGINS = True
 SITE_ID = 1
