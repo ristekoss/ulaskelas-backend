@@ -46,17 +46,17 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
     'main',
     'live_config',
-    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -174,6 +174,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static")
 CORS_ALLOW_HEADERS = list(defaults.default_headers) + [
     "Access-Control-Expose-Headers",
 ]
+# print(CORS_ALLOW_HEADERS)
 
 CORS_EXPOSE_HEADERS = ["Content-Disposition", "Access-Control-Allow-Origin"]
 
