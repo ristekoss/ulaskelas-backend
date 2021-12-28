@@ -1,3 +1,4 @@
+from live_config.views import get_config
 from rest_framework import serializers
 
 from .models import Course, Profile, Review, Tag, Bookmark
@@ -26,10 +27,18 @@ class CourseSerializer(serializers.ModelSerializer):
     # prerequisites = PrerequisiteSerializer(read_only=True, many=True)
     # curriculums = CurriculumSerializer(read_only=True, many=True)
     review_count = serializers.IntegerField()
+    code_desc = serializers.SerializerMethodField('get_code_desc')
+    
+    def get_code_desc(self, obj):
+        course_prefixes = get_config('course_prefixes')
+        code = obj.code[:4]
+        if code in course_prefixes:
+            return course_prefixes[code]
+        return None
 
     class Meta:
         model = Course
-        fields = ('code', 'curriculum', 'name', 'description', 'sks', 'term', 'prerequisites', 'review_count')
+        fields = ('code', 'code_desc', 'curriculum', 'name', 'description', 'sks', 'term', 'prerequisites', 'review_count')
 
 class CourseDetailSerializer(serializers.ModelSerializer):
     review_count = serializers.SerializerMethodField('get_review_count')
