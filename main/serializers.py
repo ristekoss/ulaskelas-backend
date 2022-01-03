@@ -1,4 +1,5 @@
 from live_config.views import get_config
+from main.utils import get_profile_term
 from rest_framework import serializers
 
 from .models import Course, Profile, Review, Tag, Bookmark
@@ -151,6 +152,17 @@ class BookmarkSerializer(serializers.ModelSerializer):
         return obj.course.reviews.count()
 
 class AccountSerializer(serializers.ModelSerializer):
+    term = serializers.SerializerMethodField('get_term')
+    generation = serializers.SerializerMethodField('get_generation')
+
     class Meta:
         model = Profile
-        fields = '__all__'
+        fields = [field.name for field in model._meta.fields]
+        fields.extend(['term', 'generation'])
+
+    def get_term(self, obj):
+        return get_profile_term(obj)
+
+    def get_generation(self, obj):
+        generation = 2000 + int(obj.npm[:2])
+        return str(generation)
