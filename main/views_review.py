@@ -21,7 +21,7 @@ def review(request):
 	if request.method == 'GET':
 		isById = validate_params(request, ['id'])
 		if isById == None:
-			return get_review_by_id(request)
+			return get_review_by_id(request, user.id)
 
 		error = validate_params(request, ['page'])
 		if error != None:
@@ -37,13 +37,15 @@ def review(request):
 		if course is None:
 			return response_paged(error="Course not found", status=status.HTTP_404_NOT_FOUND)
 
-		reviews = Review.objects.filter(course=course).filter(is_active=True)
+		reviews = Review.objects.filter(course=course).filter(is_active=True).select_related('user').select_related('course')
 		if reviews.exists():
 			reviews, total_page = get_paged_obj(reviews, page)
-			review_likes = ReviewLike.objects.filter(review__course=course)
+			review_likes = ReviewLike.objects.filter(review__course=course).select_related('user')
 			review_tags = ReviewTag.objects.all()
-			return response_paged(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes, 'review_tags':review_tags}).data, 
+			
+			return response_paged(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes, 'review_tags':review_tags, 'current_user':user.id}).data, 
 				total_page=total_page)
+
 		return response_paged(data=[])
 
 	if request.method == 'POST':
@@ -145,7 +147,7 @@ def create_review_tag(review, tags):
 		ReviewTag.objects.create(review = review, tag = tag_obj)
 		return None
 
-def get_review_by_id(request):
+def get_review_by_id(request, user_id):
 	id = request.query_params.get("id")
 	review = Review.objects.filter(id=id).filter(is_active=True).first()
 	if review == None:
@@ -153,7 +155,7 @@ def get_review_by_id(request):
 
 	review_likes = ReviewLike.objects.filter(review__id=id)
 	review_tags = ReviewTag.objects.all()
-	return response(data=ReviewSerializer(review, context={'review_likes': review_likes, 'review_tags':review_tags}).data)
+	return response(data=ReviewSerializer(review, context={'review_likes': review_likes, 'review_tags':review_tags, 'current_user':user_id}).data)
 
 def get_reviews_by_author(request, user_id, page):
 	reviews = Review.objects.filter(user=user_id).filter(is_active=True).all()
@@ -162,5 +164,5 @@ def get_reviews_by_author(request, user_id, page):
 	reviews, total_page = get_paged_obj(reviews, page)
 	review_likes = ReviewLike.objects.filter(review__user__id=user_id)
 	review_tags = ReviewTag.objects.all()
-	return response_paged(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes, 'review_tags':review_tags}).data, 
+	return response_paged(data=ReviewSerializer(reviews, many=True, context={'review_likes': review_likes, 'review_tags':review_tags, 'current_user':user_id}).data, 
 		total_page=total_page)
