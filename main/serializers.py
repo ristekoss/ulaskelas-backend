@@ -94,7 +94,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         fields.extend(['review_count','code_desc', 'tags'])
 
 class ReviewSerializer(serializers.ModelSerializer):
-    likes_by = serializers.SerializerMethodField('get_likes')
+    likes_count = serializers.SerializerMethodField('get_likes_count')
+    is_liked = serializers.SerializerMethodField('get_is_liked')
     tags = serializers.SerializerMethodField('get_tags')
     author = serializers.SerializerMethodField('get_author')
     author_generation = serializers.SerializerMethodField('get_author_generation')
@@ -104,7 +105,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = [field.name for field in model._meta.fields]
-        fields.extend(['author', 'author_generation', 'author_study_program', 'course_code', 'tags', 'likes_by'])
+        fields.extend(['author', 'author_generation', 'author_study_program', 'course_code', 'tags', 'likes_count', 'is_liked'])
 
     def get_author(self, obj):
         return obj.user.username
@@ -121,15 +122,26 @@ class ReviewSerializer(serializers.ModelSerializer):
     def get_course_code(self, obj):
         return obj.course.code
     
-    def get_likes(self, obj):
+    def get_likes_count(self, obj):
         try:
             review_likes = self.context['review_likes'].filter(review=obj)
         except:
             review_likes = []
-        likes = []
+        return len(review_likes)
+    
+    def get_is_liked(self, obj):
+        current_user = self.context['current_user']
+
+        try:
+            review_likes = self.context['review_likes'].filter(review=obj)
+        except:
+            review_likes = []
+
         for like in review_likes:
-            likes.append(like.user.username)
-        return likes
+            if like.user.id == current_user:
+                return True
+
+        return False
 
     def get_tags(self, obj):
         try:
