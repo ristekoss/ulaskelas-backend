@@ -30,8 +30,9 @@ def review(request):
 		page = int(request.query_params.get("page"))
 		
 		code = request.query_params.get("course_code")
-		if code == None:
-			return get_reviews_by_author(request, user.id, page)
+		by_author = request.query_params.get("by_author")
+		if by_author:
+			return get_reviews_by_author(request, user.id, page, code)
 
 		course = Course.objects.filter(code=code).first()
 		if course is None:
@@ -157,8 +158,16 @@ def get_review_by_id(request, user_id):
 	review_tags = ReviewTag.objects.all()
 	return response(data=ReviewSerializer(review, context={'review_likes': review_likes, 'review_tags':review_tags, 'current_user':user_id}).data)
 
-def get_reviews_by_author(request, user_id, page):
-	reviews = Review.objects.filter(user=user_id).filter(is_active=True).all()
+def get_reviews_by_author(request, user_id, page, code):
+	if code != None:
+		course = Course.objects.filter(code=code).first()
+		if course is None:
+			return response_paged(error="Course not found", status=status.HTTP_404_NOT_FOUND)
+
+		reviews = Review.objects.filter(user=user_id).filter(course=course).filter(is_active=True).select_related('user').select_related('course')
+	else:
+		reviews = Review.objects.filter(user=user_id).filter(is_active=True).all()
+	
 	if reviews == None:
 		return response_paged(error="No reviews found")
 	reviews, total_page = get_paged_obj(reviews, page)
