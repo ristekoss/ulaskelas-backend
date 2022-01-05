@@ -130,9 +130,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         return len(review_likes)
     
     def get_is_liked(self, obj):
-        current_user = self.context['current_user']
-
         try:
+            current_user = self.context['current_user']
             review_likes = self.context['review_likes'].filter(review=obj)
         except:
             review_likes = []
