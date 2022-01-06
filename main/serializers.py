@@ -101,11 +101,15 @@ class ReviewSerializer(serializers.ModelSerializer):
     author_generation = serializers.SerializerMethodField('get_author_generation')
     author_study_program = serializers.SerializerMethodField('get_author_study_program')
     course_code = serializers.SerializerMethodField('get_course_code')
+    course_code_desc = serializers.SerializerMethodField('get_course_code_desc')
+    course_name = serializers.SerializerMethodField('get_course_name')
+    course_review_count = serializers.SerializerMethodField('get_course_review_count')
 
     class Meta:
         model = Review
         fields = [field.name for field in model._meta.fields]
-        fields.extend(['author', 'author_generation', 'author_study_program', 'course_code', 'tags', 'likes_count', 'is_liked'])
+        fields.extend(['author', 'author_generation', 'author_study_program', 'course_code', 'course_code_desc', 'course_name', 
+        'course_review_count', 'tags', 'likes_count', 'is_liked'])
 
     def get_author(self, obj):
         return obj.user.username
@@ -151,6 +155,20 @@ class ReviewSerializer(serializers.ModelSerializer):
         for tag in review_tags:
             tags.append(tag.tag.tag_name)
         return tags
+
+    
+    def get_course_code_desc(self, obj):
+        course_prefixes = get_config('course_prefixes')
+        code = obj.course.code[:4]
+        if code in course_prefixes:
+            return course_prefixes[code]
+        return None
+
+    def get_course_name(self, obj):
+        return obj.course.name
+
+    def get_course_review_count(self, obj):
+        return obj.course.reviews.count()
 
 class ReviewDSSerializer(serializers.ModelSerializer):
     class Meta:

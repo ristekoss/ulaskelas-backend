@@ -18,3 +18,4 @@ application = get_wsgi_application()
 # Scheduler update course
 from courseUpdater import updater
 updater.start()
+ 
