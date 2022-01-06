@@ -8,7 +8,7 @@ from django.db.models import Count, Prefetch, Q
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .models import Course, Review, ReviewTag
-from .serializers import CourseSerializer, CourseDetailSerializer
+from .serializers import CourseSerializer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,6 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 				Prefetch('review_tags', queryset=ReviewTag.objects.select_related('tag'))
 				))
 			).get()
-		data = CourseDetailSerializer(courses, many=False).data
+		data = self.get_serializer(courses, many=False).data
 
 		return response(data={'course': data})
