@@ -49,6 +49,10 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 			data = self.get_serializer(courses, many=True).data
 			return response(data={'courses': data}, error=error)
 		
+		q = request.query_params.get("q")
+		if q != None:
+			courses = courses.filter(Q(code__icontains=q) | Q(name__icontains=q) | Q(description__icontains=q))
+
 		page = request.GET['page']
 		courses, total_page = get_paged_obj(courses, page)
 		data = self.get_serializer(courses, many=True).data
