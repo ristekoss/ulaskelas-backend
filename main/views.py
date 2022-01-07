@@ -147,9 +147,9 @@ def tag(request):
 		page = request.query_params.get("page")
 		tags = Tag.objects.filter(is_active=True)
 
-		q = request.query_params.get("q")
-		if q != None:
-			tags = tags.filter(Q(tag_name__icontains=q))
+		name = request.query_params.get("name")
+		if name != None:
+			tags = tags.filter(Q(tag_name__icontains=name))
 			
 		res_tags = []
 		if page != None:
