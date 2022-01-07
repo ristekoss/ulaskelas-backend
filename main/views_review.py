@@ -39,7 +39,7 @@ def review(request):
 		if course is None:
 			return response_paged(error="Course not found", status=status.HTTP_404_NOT_FOUND)
 
-		reviews = Review.objects.filter(course=course).filter(is_active=True).filter(~Q(user=user)).select_related('user').select_related('course')
+		reviews = Review.objects.filter(course=course).filter(is_active=True).filter(~Q(user=user)).filter(hate_speech_status='APPROVED').select_related('user').select_related('course')
 		if reviews.exists():
 			reviews, total_page = get_paged_obj(reviews, page)
 			review_likes = ReviewLike.objects.filter(review__course=course).select_related('user')
