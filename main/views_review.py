@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework import status
 from .utils import get_paged_obj, response, response_paged, validate_body, validate_params
 from django.db import transaction
+from django.db.models import Q
 
 from .models import Course, Review, Profile, ReviewLike, ReviewTag, Tag
 from .serializers import ReviewDSSerializer, ReviewSerializer
@@ -38,7 +39,7 @@ def review(request):
 		if course is None:
 			return response_paged(error="Course not found", status=status.HTTP_404_NOT_FOUND)
 
-		reviews = Review.objects.filter(course=course).filter(is_active=True).select_related('user').select_related('course')
+		reviews = Review.objects.filter(course=course).filter(is_active=True).filter(~Q(user=user)).select_related('user').select_related('course')
 		if reviews.exists():
 			reviews, total_page = get_paged_obj(reviews, page)
 			review_likes = ReviewLike.objects.filter(review__course=course).select_related('user')
