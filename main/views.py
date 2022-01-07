@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from datetime import datetime
+from django.db.models import Q
 from .utils import get_paged_obj, process_sso_profile, response, response_paged, validate_body
 from sso.decorators import with_sso_ui
 from sso.utils import get_logout_url
@@ -142,13 +143,14 @@ def bookmark(request):
 @api_view(['GET', 'POST', 'DELETE'])
 @permission_classes((permissions.AllowAny,)) #temp
 def tag(request):
-	"""
-	Handle CR Tag.
-	Remember that this endpoint require Token Authorization. 
-    """
 	if request.method == 'GET':
 		page = request.query_params.get("page")
 		tags = Tag.objects.filter(is_active=True)
+
+		q = request.query_params.get("q")
+		if q != None:
+			tags = tags.filter(Q(tag_name__icontains=q))
+			
 		res_tags = []
 		if page != None:
 			tags, total_page = get_paged_obj(tags, page)
