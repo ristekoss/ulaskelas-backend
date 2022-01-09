@@ -145,6 +145,7 @@ class ReviewDSSerializer(serializers.ModelSerializer):
 
 class BookmarkSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField('get_user')
+    course_id = serializers.SerializerMethodField('get_course_id')
     course_code = serializers.SerializerMethodField('get_course_code')
     course_code_desc = serializers.SerializerMethodField('get_course_code_desc')
     course_name = serializers.SerializerMethodField('get_course_name')
@@ -152,11 +153,14 @@ class BookmarkSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Bookmark
-        fields = ('user', 'course_code', 'course_code_desc', 'course_name', 'course_review_count')
+        fields = ('user', 'course_id', 'course_code', 'course_code_desc', 'course_name', 'course_review_count')
     
     def get_user(self, obj):
         return obj.user.username
     
+    def get_course_id(self, obj):
+        return obj.course.id
+
     def get_course_code(self, obj):
         return obj.course.code
     
