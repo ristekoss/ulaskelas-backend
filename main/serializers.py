@@ -39,12 +39,12 @@ class CourseSerializer(serializers.ModelSerializer):
         return None
 
     def get_review_count(self, obj):
-        return obj.reviews.count()
+        return obj.reviews.filter(is_active=True).filter(hate_speech_status='APPROVED').count()
     
     def get_top_tags(self, obj):
         tag_count = {}
 
-        for review in obj.reviews.all():
+        for review in obj.reviews.filter(is_active=True).filter(hate_speech_status='APPROVED').all():
             for review_tag in review.review_tags.all():
                 tag_name = review_tag.tag.tag_name
 
@@ -136,7 +136,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         return obj.course.name
 
     def get_course_review_count(self, obj):
-        return obj.course.reviews.count()
+        return obj.course.reviews.filter(is_active=True).filter(hate_speech_status='APPROVED').count()
 
 class ReviewDSSerializer(serializers.ModelSerializer):
     class Meta:
@@ -175,7 +175,7 @@ class BookmarkSerializer(serializers.ModelSerializer):
         return obj.course.name
 
     def get_course_review_count(self, obj):
-        return obj.course.reviews.count()
+        return obj.course.reviews.filter(is_active=True).filter(hate_speech_status='APPROVED').count()
 
 class AccountSerializer(serializers.ModelSerializer):
     term = serializers.SerializerMethodField('get_term')
