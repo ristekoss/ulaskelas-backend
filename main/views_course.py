@@ -71,24 +71,25 @@ def filter_course(request, courses):
 	if code != None:
 		courses = courses.filter(Q(code__icontains=code))
 
-	code_desc = request.query_params.get("code_desc")
-	if code_desc != None:
+	lst_code_desc = request.query_params.get("code_desc")
+	if lst_code_desc != None:
+		lst_code_desc = lst_code_desc.split(',')
 		course_prefixes = get_config('course_prefixes')
 		reverse_course_prefix = {v: k for k, v in course_prefixes.items()}
-		if code_desc in reverse_course_prefix:
-			print(reverse_course_prefix[code_desc])
-			courses = courses.filter(Q(code__icontains=reverse_course_prefix[code_desc]))
-	
+		courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(code__icontains=reverse_course_prefix[x]) for x in lst_code_desc]))
+
 	name = request.query_params.get("name")
 	if name != None:
 		courses = courses.filter(Q(name__icontains=name))
 
-	sks = request.query_params.get("sks")
-	if sks != None:
-		courses = courses.filter(Q(sks=sks))
+	lst_sks = request.query_params.get("sks")
+	if lst_sks != None:
+		lst_sks = lst_sks.split(',')
+		courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(sks=sks) for sks in lst_sks]))
 
-	term = request.query_params.get("term")
-	if term != None:
-		courses = courses.filter(Q(term=term))
+	lst_term = request.query_params.get("term")
+	if lst_term != None:
+		lst_term = lst_term.split(',')
+		courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(term=term) for term in lst_term]))
 	
 	return courses
