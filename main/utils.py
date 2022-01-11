@@ -10,7 +10,7 @@ from .models import Profile
 
 def process_sso_profile(sso_profile):
     try:
-        user = User.objects.get(username=sso_profile['username'])
+        user = User.objects.get(username__iexact=sso_profile['username'])
         token, _ = Token.objects.get_or_create(user=user)
     except User.DoesNotExist:
         user = User(username=sso_profile['username'])
