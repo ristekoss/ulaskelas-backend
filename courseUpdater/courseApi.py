@@ -1,10 +1,13 @@
 import requests
 from main.models import Course
 from django.conf import settings as django_settings
+import logging
 
 def update_courses():
     print("UPDATE CALLED")
     json = _get_courses_json()
+    logging.info("Sunjad courses response: {}".format(json))
+
     if json is not None:
         courses_json = json['courses']
         for course_json in courses_json:
