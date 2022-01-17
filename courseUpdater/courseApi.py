@@ -1,10 +1,13 @@
 import requests
 from main.models import Course
 from django.conf import settings as django_settings
+import logging
 
 def update_courses():
     print("UPDATE CALLED")
     json = _get_courses_json()
+    logging.info("Sunjad courses response: {}".format(json))
+
     if json is not None:
         courses_json = json['courses']
         for course_json in courses_json:
@@ -36,8 +39,8 @@ def getCourse(course_json):
 def populateCourseData(course, course_json):
     course.curriculum = course_json['curriculum']
     course.sks = int(course_json['credit'])
-    course.description = course_json['description']
+    course.description = course_json['description'] if course_json['description'] else ""
     course.name = course_json['name']
     course.term = int(course_json['term'])
-    course.prerequisites = course_json['prerequisite']
+    course.prerequisite = course_json['prerequisite'] if course_json['prerequisite'] else ""
     return course
