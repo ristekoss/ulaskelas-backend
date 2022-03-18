@@ -1,6 +1,6 @@
 import os
 import json
-from cas import CASClient
+from .cas import CASClient
 from django.conf import settings as django_settings
 from six.moves import urllib_parse
 
