@@ -27,6 +27,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('update-course/', views.update_course),
     path('ping', views.ping),
+    path('health-check', views.health_check),
     path('login/', views.login),
     path('api/', include("main.urls")),
     path('api-auth-token/', views_token.obtain_auth_token),
