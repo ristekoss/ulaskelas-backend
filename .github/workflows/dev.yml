@@ -32,3 +32,4 @@ jobs:
         version_label: ${{ steps.vars.outputs.sha_short }}-dev
         region: ap-southeast-1
         deployment_package: deploy.zip
+        use_existing_version_if_available: true
