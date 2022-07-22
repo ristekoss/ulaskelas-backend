@@ -14,7 +14,7 @@ django-sso-ui==1.0.0
 djangorestframework==3.12.2
 gunicorn==20.0.4
 idna==2.10
-lxml==4.6.1
+lxml==4.9.1
 psycopg2==2.9.1
 pycodestyle==2.6.0
 python-cas==1.5.0
