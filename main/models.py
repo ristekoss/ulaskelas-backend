@@ -69,6 +69,7 @@ class Review(models.Model):
     sentimen = models.PositiveSmallIntegerField(null=True)
     is_anonym = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    is_reviewed = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         ''' On save, update timestamps '''
