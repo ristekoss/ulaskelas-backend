@@ -50,8 +50,21 @@ def review(request):
 
 		return response_paged(data=[])
 
+
 	if request.method == 'POST':
-		is_valid = validate_body(request, ['course_code', 'academic_year', 'semester', 'content', 'is_anonym', 'tags'])
+		is_valid = validate_body(request, [
+			'course_code',
+			'academic_year',
+			'semester',
+			'content',
+			'is_anonym',
+			'tags',
+			'rating_understandable',
+			'rating_fit_to_credit',
+			'rating_fit_to_study_book',
+			'rating_beneficial',
+			'rating_recommended'
+		])
 		if is_valid != None:
 			return is_valid
 		
@@ -64,18 +77,40 @@ def review(request):
 		semester = request.data.get("semester")
 		content = request.data.get("content")
 		is_anonym = request.data.get("is_anonym")
+		rating_understandable = request.data.get("rating_understandable")
+		rating_fit_to_credit = request.data.get("rating_fit_to_credit")
+		rating_fit_to_study_book = request.data.get("rating_fit_to_study_book")
+		rating_beneficial = request.data.get("rating_beneficial")
+		rating_recommended = request.data.get("rating_recommended")
 
 		try:
 			with transaction.atomic():
+				# Create new review
 				review = Review.objects.create(
 					user=user,
 					course=course,
 					academic_year = academic_year,
 					semester = semester,
 					content = content,
-					is_anonym = is_anonym
+					is_anonym = is_anonym,
+					rating_understandable = rating_understandable,
+					rating_fit_to_credit = rating_fit_to_credit,
+					rating_fit_to_study_book = rating_fit_to_study_book,
+					rating_beneficial = rating_beneficial,
+					rating_recommended = rating_recommended
 				)
+
+				# Update course rating
+				# course.average_rating_understandable = (course.average_rating_understandable * course.total_review + rating_understandable) / (course.total_review + 1)
+				# course.average_rating_fit_to_credit = (course.average_rating_fit_to_credit * course.total_review + rating_fit_to_credit) / (course.total_review + 1)
+				# course.average_rating_fit_to_study_book = (course.average_rating_fit_to_study_book * course.total_review + rating_fit_to_study_book) / (course.total_review + 1)
+				# course.average_rating_beneficial = (course.average_rating_beneficial * course.total_review + rating_beneficial) / (course.total_review + 1)
+				# course.average_rating_recommended = (course.average_rating_recommended * course.total_review + rating_recommended) / (course.total_review + 1)
+				# course.total_review = course.total_review + 1
+				# course.save()
+
 				create_review_tag(review, tags)
+				
 		except Exception as e:
 			logger.error("Failed to save review, request data {}".format(request.data))
 			return response(error="Failed to save review, error message: {}".format(e), status=status.HTTP_404_NOT_FOUND)

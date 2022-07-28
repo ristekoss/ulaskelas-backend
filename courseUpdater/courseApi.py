@@ -11,8 +11,9 @@ def update_courses():
     if json is not None:
         courses_json = json['courses']
         for course_json in courses_json:
-            course = getCourse(course_json)
-            course.save()
+            if course_json['code']:
+                course = getCourse(course_json)
+                course.save()
 
 def _get_courses_json():
     url = django_settings.SUNJAD_BASE_URL + 'susunjadwal/api/courses'
