@@ -70,11 +70,11 @@ class Review(models.Model):
     is_anonym = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_reviewed = models.BooleanField(default=False)
-    rating_understandable = models.PositiveSmallIntegerField(default=0)
-    rating_fit_to_credit = models.PositiveSmallIntegerField(default=0)
-    rating_fit_to_study_book = models.PositiveSmallIntegerField(default=0)
-    rating_beneficial = models.PositiveSmallIntegerField(default=0)
-    rating_recommended = models.PositiveSmallIntegerField(default=0)
+    rating_understandable = models.FloatField(null=True, default=0)
+    rating_fit_to_credit = models.FloatField(null=True, default=0)
+    rating_fit_to_study_book = models.FloatField(null=True, default=0)
+    rating_beneficial = models.FloatField(null=True, default=0)
+    rating_recommended = models.FloatField(null=True, default=0)
 
     def save(self, *args, **kwargs):
         ''' On save, update timestamps '''
