@@ -224,7 +224,7 @@ def leaderboard(request):
 	Return user leaderboard
 	Remember that this endpoint require Token Authorization. 
 	"""
-	top_users = Profile.objects.order_by('-likes_count')[:20]
+	top_users = Profile.objects.filter(likes_count__gt=0).order_by('-likes_count')[:20]
 	return response(data=AccountSerializer(top_users, many=True).data)
 
 @api_view(['GET'])

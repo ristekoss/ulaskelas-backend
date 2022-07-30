@@ -43,7 +43,7 @@ class Profile(models.Model):
     role = models.CharField(max_length=63)
     org_code = models.CharField(max_length=63)
     is_blocked = models.BooleanField(default=False)
-    likes_count = models.PositiveIntegerField(default=0)
+    likes_count = models.PositiveIntegerField(default=0, null=True)
 
 class Review(models.Model):
     """
