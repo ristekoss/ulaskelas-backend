@@ -43,7 +43,7 @@ class Profile(models.Model):
     role = models.CharField(max_length=63)
     org_code = models.CharField(max_length=63)
     is_blocked = models.BooleanField(default=False)
-
+    likes_count = models.PositiveIntegerField(default=0)
 
 class Review(models.Model):
     """
@@ -70,6 +70,11 @@ class Review(models.Model):
     is_anonym = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_reviewed = models.BooleanField(default=False)
+    rating_understandable = models.PositiveSmallIntegerField(default=0)
+    rating_fit_to_credit = models.PositiveSmallIntegerField(default=0)
+    rating_fit_to_study_book = models.PositiveSmallIntegerField(default=0)
+    rating_beneficial = models.PositiveSmallIntegerField(default=0)
+    rating_recommended = models.PositiveSmallIntegerField(default=0)
 
     def save(self, *args, **kwargs):
         ''' On save, update timestamps '''

@@ -1,9 +1,8 @@
 from django import conf
 from rest_framework import routers
 from django.urls import path, include
-
 from .views_calculator import calculator, score_component
-from .views import like, tag, bookmark, account
+from .views import like, tag, bookmark, account, leaderboard
 from .views_review import ds_review, review
 from .views_course import CourseViewSet
 
@@ -18,8 +17,8 @@ urlpatterns = [
 	path("likes", like, name="likes"),
 	path("tags", tag, name="tags"),
 	path("account", account, name="account"),
+	path("leaderboard", leaderboard, name="leaderboard")
 	path("calculator", calculator, name="calculator"),
 	path("score-component", score_component, name="score-component" )
-    # path("update_courses", update_courses, name="update_courses"), # temporary
 ] + router.urls
 
