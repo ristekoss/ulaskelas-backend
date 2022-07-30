@@ -17,8 +17,8 @@ urlpatterns = [
 	path("likes", like, name="likes"),
 	path("tags", tag, name="tags"),
 	path("account", account, name="account"),
-	path("leaderboard", leaderboard, name="leaderboard")
+	path("leaderboard", leaderboard, name="leaderboard"),
 	path("calculator", calculator, name="calculator"),
-	path("score-component", score_component, name="score-component" )
+	path("score-component", score_component, name="score-component")
 ] + router.urls
 
