@@ -14,6 +14,7 @@ from .models import Course, Review, Profile, ReviewLike, Tag, Bookmark
 from .serializers import AccountSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
+from leaderboard_updater import updater as leaderboard_updater
 from django.shortcuts import redirect
 import logging
 
@@ -225,3 +226,18 @@ def leaderboard(request):
 	"""
 	top_users = Profile.objects.order_by('-likes_count')[:20]
 	return response(data=AccountSerializer(top_users, many=True).data)
+
+@api_view(['GET'])
+@permission_classes((permissions.AllowAny,))
+def update_leaderboard(request):
+	"""
+	Update leaderboard data
+	"""
+	start = datetime.now()
+	leaderboard_updater.update_leaderboard()
+	finish = datetime.now()
+
+	latency = (finish-start).seconds
+	time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+	message = 'Leaderboard updated succeed on %s, elapsed time: %s seconds' % (time, latency)
+	return Response({'message': message})

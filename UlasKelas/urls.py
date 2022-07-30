@@ -26,6 +26,7 @@ from django.conf.urls.static import static # to import static in deployment
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('update-course/', views.update_course),
+    path('update-leaderboard/', views.update_leaderboard),
     path('ping', views.ping),
     path('health-check', views.health_check),
     path('login/', views.login),
