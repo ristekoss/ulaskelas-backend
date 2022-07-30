@@ -3,7 +3,7 @@ from main.utils import get_profile_term
 from rest_framework import serializers
 from django.db.models import Avg
 
-from .models import Course, Profile, Review, Tag, Bookmark
+from .models import Calculator, Course, Profile, Review, ScoreComponent, Tag, Bookmark
 
 # class CurriculumSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -250,3 +250,31 @@ class AccountSerializer(serializers.ModelSerializer):
     def get_generation(self, obj):
         generation = 2000 + int(obj.npm[:2])
         return str(generation)
+
+class CalculatorSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField('get_user')
+    course_id = serializers.SerializerMethodField('get_course_id')
+    course_name = serializers.SerializerMethodField('get_course_name')
+
+    class Meta:
+        model = Calculator
+        fields = ('id', 'user', 'course_id', 'course_name', 'total_score', "total_percentage")
+
+    def get_user(self, obj):
+        return obj.user.username
+
+    def get_course_id(self, obj):
+        return obj.course.id
+
+    def get_course_name(self, obj):
+        return obj.course.name
+
+class ScoreComponentSerializer(serializers.ModelSerializer):
+    calculator_id = serializers.SerializerMethodField('get_calculator_id')
+    
+    class Meta:
+        model = ScoreComponent
+        fields = ('id', 'calculator_id', 'name', 'weight', 'score')
+
+    def get_calculator_id(self, obj):
+        return obj.calculator.id

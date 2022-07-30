@@ -99,3 +99,21 @@ class Bookmark(models.Model):
     user = models.ForeignKey(Profile, on_delete=CASCADE)
     course = models.ForeignKey(Course, on_delete=CASCADE)
 
+class Calculator(models.Model):
+    """
+    Calculator for course score
+    """
+    user = models.ForeignKey(Profile, on_delete=CASCADE)
+    course = models.ForeignKey(Course, on_delete=CASCADE)
+    total_score = models.FloatField(default=0)
+    total_percentage = models.FloatField(default=0)
+
+class ScoreComponent(models.Model):
+    """
+    Score component for calculator
+    """
+    calculator = models.ForeignKey(Calculator, on_delete=CASCADE)
+    name = models.TextField()
+    weight = models.FloatField()
+    score = models.FloatField()
+    
