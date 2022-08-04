@@ -118,7 +118,7 @@ def like(request):
 			return response(error="Review not found", status=status.HTTP_404_NOT_FOUND)
 
 		review_likes = ReviewLike.objects.filter(review=review).first()
-		if review_likes is None:
+		if review_likes is None or is_like:
 			review_likes = ReviewLike.objects.create(user=user, review=review)
 
 		if is_like == False:
