@@ -52,19 +52,25 @@ def review(request):
 
 
 	if request.method == 'POST':
-		is_valid = validate_body(request, [
+		required_fields = [
 			'course_code',
 			'academic_year',
 			'semester',
 			'content',
 			'is_anonym',
-			'tags',
-			'rating_understandable',
-			'rating_fit_to_credit',
-			'rating_fit_to_study_book',
-			'rating_beneficial',
-			'rating_recommended'
-		])
+			'tags'
+		]
+
+		if request.version == 'v2':
+			required_fields.extend([
+				'rating_understandable',
+				'rating_fit_to_credit',
+				'rating_fit_to_study_book',
+				'rating_beneficial',
+				'rating_recommended'
+			])
+
+		is_valid = validate_body(request, required_fields)
 		if is_valid != None:
 			return is_valid
 		
@@ -77,11 +83,11 @@ def review(request):
 		semester = request.data.get("semester")
 		content = request.data.get("content")
 		is_anonym = request.data.get("is_anonym")
-		rating_understandable = request.data.get("rating_understandable")
-		rating_fit_to_credit = request.data.get("rating_fit_to_credit")
-		rating_fit_to_study_book = request.data.get("rating_fit_to_study_book")
-		rating_beneficial = request.data.get("rating_beneficial")
-		rating_recommended = request.data.get("rating_recommended")
+		rating_understandable = request.data.get("rating_understandable") or 0
+		rating_fit_to_credit = request.data.get("rating_fit_to_credit") or 0
+		rating_fit_to_study_book = request.data.get("rating_fit_to_study_book") or 0
+		rating_beneficial = request.data.get("rating_beneficial") or 0
+		rating_recommended = request.data.get("rating_recommended") or 0
 
 		try:
 			with transaction.atomic():
@@ -99,15 +105,6 @@ def review(request):
 					rating_beneficial = rating_beneficial,
 					rating_recommended = rating_recommended
 				)
-
-				# Update course rating
-				# course.average_rating_understandable = (course.average_rating_understandable * course.total_review + rating_understandable) / (course.total_review + 1)
-				# course.average_rating_fit_to_credit = (course.average_rating_fit_to_credit * course.total_review + rating_fit_to_credit) / (course.total_review + 1)
-				# course.average_rating_fit_to_study_book = (course.average_rating_fit_to_study_book * course.total_review + rating_fit_to_study_book) / (course.total_review + 1)
-				# course.average_rating_beneficial = (course.average_rating_beneficial * course.total_review + rating_beneficial) / (course.total_review + 1)
-				# course.average_rating_recommended = (course.average_rating_recommended * course.total_review + rating_recommended) / (course.total_review + 1)
-				# course.total_review = course.total_review + 1
-				# course.save()
 
 				create_review_tag(review, tags)
 				

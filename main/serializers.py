@@ -194,7 +194,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         return obj.course.reviews.filter(is_active=True).filter(hate_speech_status='APPROVED').count()
 
     def get_rating_average(self, obj):
-        return (obj.rating_understandable + obj.rating_fit_to_credit + obj.rating_fit_to_study_book + obj.rating_beneficial + obj.rating_recommended) / 5
+        return ((obj.rating_understandable or 0) + (obj.rating_fit_to_credit or 0) + (obj.rating_fit_to_study_book or 0) + (obj.rating_beneficial or 0) + (obj.rating_recommended or 0)) / 5
 
 class ReviewDSSerializer(serializers.ModelSerializer):
     class Meta:
