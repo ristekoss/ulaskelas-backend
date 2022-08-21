@@ -50,8 +50,27 @@ def review(request):
 
 		return response_paged(data=[])
 
+
 	if request.method == 'POST':
-		is_valid = validate_body(request, ['course_code', 'academic_year', 'semester', 'content', 'is_anonym', 'tags'])
+		required_fields = [
+			'course_code',
+			'academic_year',
+			'semester',
+			'content',
+			'is_anonym',
+			'tags'
+		]
+
+		if request.version == 'v2':
+			required_fields.extend([
+				'rating_understandable',
+				'rating_fit_to_credit',
+				'rating_fit_to_study_book',
+				'rating_beneficial',
+				'rating_recommended'
+			])
+
+		is_valid = validate_body(request, required_fields)
 		if is_valid != None:
 			return is_valid
 		
@@ -64,18 +83,31 @@ def review(request):
 		semester = request.data.get("semester")
 		content = request.data.get("content")
 		is_anonym = request.data.get("is_anonym")
+		rating_understandable = request.data.get("rating_understandable") or 0
+		rating_fit_to_credit = request.data.get("rating_fit_to_credit") or 0
+		rating_fit_to_study_book = request.data.get("rating_fit_to_study_book") or 0
+		rating_beneficial = request.data.get("rating_beneficial") or 0
+		rating_recommended = request.data.get("rating_recommended") or 0
 
 		try:
 			with transaction.atomic():
+				# Create new review
 				review = Review.objects.create(
 					user=user,
 					course=course,
 					academic_year = academic_year,
 					semester = semester,
 					content = content,
-					is_anonym = is_anonym
+					is_anonym = is_anonym,
+					rating_understandable = rating_understandable,
+					rating_fit_to_credit = rating_fit_to_credit,
+					rating_fit_to_study_book = rating_fit_to_study_book,
+					rating_beneficial = rating_beneficial,
+					rating_recommended = rating_recommended
 				)
+
 				create_review_tag(review, tags)
+				
 		except Exception as e:
 			logger.error("Failed to save review, request data {}".format(request.data))
 			return response(error="Failed to save review, error message: {}".format(e), status=status.HTTP_404_NOT_FOUND)

@@ -1,8 +1,9 @@
 from live_config.views import get_config
 from main.utils import get_profile_term
 from rest_framework import serializers
+from django.db.models import Avg
 
-from .models import Course, Profile, Review, Tag, Bookmark
+from .models import Calculator, Course, Profile, Review, ScoreComponent, Tag, Bookmark
 
 # class CurriculumSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -30,7 +31,13 @@ class CourseSerializer(serializers.ModelSerializer):
     review_count = serializers.SerializerMethodField('get_review_count')
     code_desc = serializers.SerializerMethodField('get_code_desc')
     tags = serializers.SerializerMethodField('get_top_tags')
-    
+    rating_understandable = serializers.SerializerMethodField('get_rating_understandable')
+    rating_fit_to_credit = serializers.SerializerMethodField('get_rating_fit_to_credit')
+    rating_fit_to_study_book = serializers.SerializerMethodField('get_rating_fit_to_study_book')
+    rating_beneficial = serializers.SerializerMethodField('get_rating_beneficial')
+    rating_recommended = serializers.SerializerMethodField('get_rating_recommended')
+    rating_average = serializers.SerializerMethodField('get_rating_average')
+
     def get_code_desc(self, obj):
         course_prefixes = get_config('course_prefixes')
         code = obj.code[:4]
@@ -56,10 +63,57 @@ class CourseSerializer(serializers.ModelSerializer):
         top_tags = [k for k, v in sorted(tag_count.items(), key=lambda tag: tag[1], reverse=True)]
         return top_tags[:3]
 
+    def get_all_rating(self, obj):
+        obj.ratings = obj.reviews.filter(is_active=True).filter(hate_speech_status='APPROVED').filter(rating_understandable__gte=1).aggregate(
+            rating_understandable=Avg('rating_understandable'),
+            rating_fit_to_credit=Avg('rating_fit_to_credit'),
+            rating_fit_to_study_book=Avg('rating_fit_to_study_book'),
+            rating_beneficial=Avg('rating_beneficial'),
+            rating_recommended=Avg('rating_recommended')
+        )
+
+    def get_rating_understandable(self, obj):
+        if not hasattr(obj, 'ratings'):
+            self.get_all_rating(obj)
+        return obj.ratings.get('rating_understandable') or 0.0
+
+    def get_rating_fit_to_credit(self, obj):
+        if not hasattr(obj, 'ratings'):
+            self.get_all_rating(obj)
+        return obj.ratings.get('rating_fit_to_credit') or 0.0
+
+    def get_rating_fit_to_study_book(self, obj):
+        if not hasattr(obj, 'ratings'):
+            self.get_all_rating(obj)
+        return obj.ratings.get('rating_fit_to_study_book') or 0.0
+
+    def get_rating_beneficial(self, obj):
+        if not hasattr(obj, 'ratings'):
+            self.get_all_rating(obj)
+        return obj.ratings.get('rating_beneficial') or 0.0
+
+    def get_rating_recommended(self, obj):
+        if not hasattr(obj, 'ratings'):
+            self.get_all_rating(obj)
+        return obj.ratings.get('rating_recommended') or 0.0
+
+    def get_rating_average(self, obj):
+        if not hasattr(obj, 'ratings'):
+            self.get_all_rating(obj)
+
+        rating_total = (obj.ratings.get('rating_understandable') or 0.0)\
+            + (obj.ratings.get('rating_fit_to_credit') or 0.0)\
+            + (obj.ratings.get('rating_fit_to_study_book') or 0.0)\
+            + (obj.ratings.get('rating_beneficial') or 0.0)\
+            + (obj.ratings.get('rating_recommended') or 0.0)
+
+        return rating_total / 5.0
+
     class Meta:
         model = Course
         fields = [field.name for field in model._meta.fields]
-        fields.extend(['review_count','code_desc', 'tags'])
+        fields.extend(['review_count','code_desc', 'tags', 'rating_understandable', 'rating_fit_to_credit',
+        'rating_fit_to_study_book', 'rating_beneficial', 'rating_recommended', 'rating_average'])
 
 class ReviewSerializer(serializers.ModelSerializer):
     likes_count = serializers.SerializerMethodField('get_likes_count')
@@ -72,12 +126,13 @@ class ReviewSerializer(serializers.ModelSerializer):
     course_code_desc = serializers.SerializerMethodField('get_course_code_desc')
     course_name = serializers.SerializerMethodField('get_course_name')
     course_review_count = serializers.SerializerMethodField('get_course_review_count')
+    rating_average = serializers.SerializerMethodField('get_rating_average')
 
     class Meta:
         model = Review
         fields = [field.name for field in model._meta.fields]
         fields.extend(['author', 'author_generation', 'author_study_program', 'course_code', 'course_code_desc', 'course_name', 
-        'course_review_count', 'tags', 'likes_count', 'is_liked'])
+        'course_review_count', 'tags', 'likes_count', 'is_liked', 'rating_average'])
 
     def get_author(self, obj):
         return obj.user.username
@@ -138,6 +193,9 @@ class ReviewSerializer(serializers.ModelSerializer):
     def get_course_review_count(self, obj):
         return obj.course.reviews.filter(is_active=True).filter(hate_speech_status='APPROVED').count()
 
+    def get_rating_average(self, obj):
+        return ((obj.rating_understandable or 0) + (obj.rating_fit_to_credit or 0) + (obj.rating_fit_to_study_book or 0) + (obj.rating_beneficial or 0) + (obj.rating_recommended or 0)) / 5
+
 class ReviewDSSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
@@ -192,3 +250,31 @@ class AccountSerializer(serializers.ModelSerializer):
     def get_generation(self, obj):
         generation = 2000 + int(obj.npm[:2])
         return str(generation)
+
+class CalculatorSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField('get_user')
+    course_id = serializers.SerializerMethodField('get_course_id')
+    course_name = serializers.SerializerMethodField('get_course_name')
+
+    class Meta:
+        model = Calculator
+        fields = ('id', 'user', 'course_id', 'course_name', 'total_score', "total_percentage")
+
+    def get_user(self, obj):
+        return obj.user.username
+
+    def get_course_id(self, obj):
+        return obj.course.id
+
+    def get_course_name(self, obj):
+        return obj.course.name
+
+class ScoreComponentSerializer(serializers.ModelSerializer):
+    calculator_id = serializers.SerializerMethodField('get_calculator_id')
+    
+    class Meta:
+        model = ScoreComponent
+        fields = ('id', 'calculator_id', 'name', 'weight', 'score')
+
+    def get_calculator_id(self, obj):
+        return obj.calculator.id
