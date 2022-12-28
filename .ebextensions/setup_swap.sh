@@ -12,3 +12,4 @@ fi
 /bin/chmod 600 $SWAPFILE
 /sbin/mkswap $SWAPFILE
 /sbin/swapon $SWAPFILE
+sysctl vm.swappiness=15
