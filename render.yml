@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: ulaskelas
+    env: python
+    buildCommand: "./.render/build.sh"
+    startCommand: "gunicorn UlasKelas.wsgi"
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: "UlasKelas.settings"
+      - key: POSTGRES_DB
+        value: ""
+      - key: POSTGRES_USER
+        value: ""
+      - key: POSTGRES_PASSWORD
+        value: ""
+      - key: POSTGRES_HOST
+        value: ""
+      - key: SENTRY_DSN
+        value: ""
+      - key: SECRET_KEY
+        value: ""
+      - key: WEB_CONCURRENCY
+        value: 2
