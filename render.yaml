@@ -20,6 +20,6 @@ services:
       - key: SECRET_KEY
         value: ""
       - key: DEBUG
-        value: "false"
+        value: ""
       - key: WEB_CONCURRENCY
         value: 2
