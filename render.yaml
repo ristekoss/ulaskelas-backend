@@ -23,3 +23,5 @@ services:
         value: ""
       - key: WEB_CONCURRENCY
         value: 2
+
+region: singapore
