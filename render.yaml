@@ -6,7 +6,7 @@ services:
     startCommand: "gunicorn UlasKelas.wsgi"
     envVars:
       - key: DJANGO_SETTINGS_MODULE
-        value: "UlasKelas.settings"
+        value: "UlasKelas.settings.render"
       - key: POSTGRES_DB
         value: ""
       - key: POSTGRES_USER
