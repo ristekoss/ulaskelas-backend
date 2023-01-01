@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ulaskelas
+    name: ulaskelas-dev
     env: python
     buildCommand: "./.render/build.sh"
     startCommand: "gunicorn UlasKelas.wsgi"
