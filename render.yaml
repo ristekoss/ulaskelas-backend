@@ -1,9 +1,20 @@
+previewsEnabled: true
 services:
   - type: web
     name: ulaskelas-dev
     env: python
     buildCommand: "./.render/build.sh"
     startCommand: "gunicorn UlasKelas.wsgi"
+    buildFilter:
+      ignoredPaths:
+      - .github/**
+      - .ebextensions/**
+      - .vscode/**
+      - Procfile
+      - pull_request_template.md
+      - README.md
+      - .gitignore
+      - Buildfile
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: "UlasKelas.settings.render"
