@@ -14,16 +14,17 @@ from pathlib import Path
 from corsheaders import defaults
 
 import os
+import sys
+from django.core.exceptions import ImproperlyConfigured
 import environ
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 
-env = environ.Env()
-environ.Env.read_env()
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+env = environ.Env()
+env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
@@ -32,7 +33,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = '-zrv7c0@3$c6#7e#ll!z94oy0=-2-e0eqvy4%so=!z3zw6k=da'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env("DEBUG").lower() == 'true'
+DEBUG = False
+try:
+    DEBUG = env("DEBUG").lower() == 'true'
+except ImproperlyConfigured as e:
+    print("Notice: you may have misconfigured your environment variables.")
+    raise e
 
 ALLOWED_HOSTS = ['*']
 

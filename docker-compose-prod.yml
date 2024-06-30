@@ -3,21 +3,28 @@ version: "3.9"
 services:
   postgres:
     container_name: ulas-pg
-    image: postgres:alpine
+    image: postgres:15-alpine
     volumes:
-      - ./data/db:/var/lib/postgresql/data
+      - ulas_db:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
       - "5432:5432"
+
   server:
     container_name: ulas-server
     build: .
     volumes:
       - ./instance/config.cfg:/opt/app/instance/config.cfg
+      - ./.env:/code/.env:ro
+    environment:
+      - PORT=8009
     ports:
-      - "8000:8000"
+      - "8009:8009"
     depends_on:
       - postgres
+
+volumes:
+  ulas_db:
