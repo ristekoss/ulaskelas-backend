@@ -18,7 +18,7 @@ services:
     build: .
     volumes:
       - ./instance/config.cfg:/opt/app/instance/config.cfg
-      - ./.env:/code/.env:ro
+      - ./.env:/opt/app/.env:ro
     environment:
       - PORT=8009
     ports:

@@ -1,6 +1,6 @@
 FROM python:3.7
 
-WORKDIR /code
+WORKDIR /opt/app
 
 COPY requirements.txt .
 
