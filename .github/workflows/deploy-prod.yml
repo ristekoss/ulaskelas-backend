@@ -8,7 +8,7 @@ jobs:
     name: Deploy Service
     uses: RistekCSUI/infra-workflows/.github/workflows/dockerhub-service-build.yml@main
     with:
-      SERVICES: ulaskelas/ulaskelas-backend-stg
+      SERVICES: ulaskelas/ulaskelas-backend-prod
       INSTANCE: Barato
       IMAGE: ulaskelas-backend
       DOCKERHUB_USER: ristekoss
