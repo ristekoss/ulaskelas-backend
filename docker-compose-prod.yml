@@ -17,7 +17,6 @@ services:
     container_name: ulas-server
     build: .
     volumes:
-      - ./instance/config.cfg:/opt/app/instance/config.cfg
       - ./.env:/opt/app/.env:ro
     environment:
       - PORT=8009
