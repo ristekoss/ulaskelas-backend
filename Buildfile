@@ -1,0 +1,1 @@
+release: bash deployment.sh
