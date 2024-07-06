@@ -16,6 +16,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'UlasKelas.settings')
 application = get_wsgi_application()
 
 # Scheduler update course
-from courseUpdater import updater
-updater.start()
+from courseUpdater import updater as course_updater
+from leaderboard_updater import updater as leaderboard_updater
+course_updater.start()
+leaderboard_updater.start()
  

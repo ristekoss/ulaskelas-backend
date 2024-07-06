@@ -43,7 +43,7 @@ class Profile(models.Model):
     role = models.CharField(max_length=63)
     org_code = models.CharField(max_length=63)
     is_blocked = models.BooleanField(default=False)
-
+    likes_count = models.PositiveIntegerField(default=0, null=True)
 
 class Review(models.Model):
     """
@@ -69,6 +69,12 @@ class Review(models.Model):
     sentimen = models.PositiveSmallIntegerField(null=True)
     is_anonym = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    is_reviewed = models.BooleanField(default=False)
+    rating_understandable = models.FloatField(null=True, default=0)
+    rating_fit_to_credit = models.FloatField(null=True, default=0)
+    rating_fit_to_study_book = models.FloatField(null=True, default=0)
+    rating_beneficial = models.FloatField(null=True, default=0)
+    rating_recommended = models.FloatField(null=True, default=0)
 
     def save(self, *args, **kwargs):
         ''' On save, update timestamps '''
@@ -93,3 +99,21 @@ class Bookmark(models.Model):
     user = models.ForeignKey(Profile, on_delete=CASCADE)
     course = models.ForeignKey(Course, on_delete=CASCADE)
 
+class Calculator(models.Model):
+    """
+    Calculator for course score
+    """
+    user = models.ForeignKey(Profile, on_delete=CASCADE)
+    course = models.ForeignKey(Course, on_delete=CASCADE)
+    total_score = models.FloatField(default=0)
+    total_percentage = models.FloatField(default=0)
+
+class ScoreComponent(models.Model):
+    """
+    Score component for calculator
+    """
+    calculator = models.ForeignKey(Calculator, on_delete=CASCADE)
+    name = models.TextField()
+    weight = models.FloatField()
+    score = models.FloatField()
+    

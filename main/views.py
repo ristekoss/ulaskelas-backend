@@ -14,6 +14,7 @@ from .models import Course, Review, Profile, ReviewLike, Tag, Bookmark
 from .serializers import AccountSerializer, BookmarkSerializer
 from django.http.response import HttpResponseRedirect
 from courseUpdater import courseApi
+from leaderboard_updater import updater as leaderboard_updater
 from django.shortcuts import redirect
 import logging
 
@@ -116,7 +117,7 @@ def like(request):
 		if review is None:
 			return response(error="Review not found", status=status.HTTP_404_NOT_FOUND)
 
-		review_likes = ReviewLike.objects.filter(review=review).first()
+		review_likes = ReviewLike.objects.filter(user=user, review=review).first()
 		if review_likes is None:
 			review_likes = ReviewLike.objects.create(user=user, review=review)
 
@@ -216,3 +217,27 @@ def account(request):
     """
 	user = Profile.objects.get(username=str(request.user))
 	return response(data=AccountSerializer(user, many=False).data)
+
+@api_view(['GET'])
+def leaderboard(request):
+	"""
+	Return user leaderboard
+	Remember that this endpoint require Token Authorization. 
+	"""
+	top_users = Profile.objects.filter(likes_count__gt=0).order_by('-likes_count')[:20]
+	return response(data=AccountSerializer(top_users, many=True).data)
+
+@api_view(['GET'])
+@permission_classes((permissions.AllowAny,))
+def update_leaderboard(request):
+	"""
+	Update leaderboard data
+	"""
+	start = datetime.now()
+	leaderboard_updater.update_leaderboard()
+	finish = datetime.now()
+
+	latency = (finish-start).seconds
+	time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+	message = 'Leaderboard updated succeed on %s, elapsed time: %s seconds' % (time, latency)
+	return Response({'message': message})
