@@ -1,6 +1,7 @@
 from django import conf
 from rest_framework import routers
 from django.urls import path, include
+from .views_gpa_calculator import gpa_calculator
 from .views_calculator import calculator, score_component
 from .views import like, tag, bookmark, account, leaderboard
 from .views_review import ds_review, review
@@ -19,6 +20,7 @@ urlpatterns = [
 	path("account", account, name="account"),
 	path("leaderboard", leaderboard, name="leaderboard"),
 	path("calculator", calculator, name="calculator"),
-	path("score-component", score_component, name="score-component")
+	path("score-component", score_component, name="score-component"),
+  path("calculator-gpa", gpa_calculator, name="gpa-calculator")
 ] + router.urls
 

@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Profile
+from .models import Profile, UserCumulativeGPA
 
 
 def process_sso_profile(sso_profile):
@@ -73,3 +73,36 @@ def get_paged_obj(objs, page):
     paginator = Paginator(objs, 10)
     objs = paginator.get_page(page)
     return objs, paginator.num_pages
+
+
+def check_notexist_and_create_user_cumulative_gpa(user):
+    user_cumulative_gpa = UserCumulativeGPA.objects.get(user = user)
+    if not user_cumulative_gpa :
+        user_cumulative_gpa = UserCumulativeGPA.objects.create(user = user)
+        user_cumulative_gpa.save()
+    return user_cumulative_gpa
+
+def validate_body_minimum(request, attrs):
+    # At least one element in attrs must be present in request.data
+    for attr in attrs:
+        res = request.data.get(attr)
+        if res is not None:
+            return None
+    return response(error="None of the following attributes are present in the request data: {}.".format(attrs), status=status.HTTP_404_NOT_FOUND)
+
+def add_semester_gpa(user_cumulative_gpa, total_sks, semester_gpa):
+    user_cumulative_gpa.total_sks += total_sks
+    user_cumulative_gpa.total_gpa += semester_gpa * total_sks
+    user_cumulative_gpa.cumulative_gpa = user_cumulative_gpa.total_gpa / user_cumulative_gpa.total_sks
+    user_cumulative_gpa.save()
+
+def delete_semester_gpa(user_cumulative_gpa, total_sks, semester_gpa):
+    user_cumulative_gpa.total_sks -= total_sks
+    user_cumulative_gpa.total_gpa -= semester_gpa * total_sks
+
+    if user_cumulative_gpa.total_sks == 0:
+        user_cumulative_gpa.cumulative_gpa = 0
+    else:
+        user_cumulative_gpa.cumulative_gpa = user_cumulative_gpa.total_gpa / user_cumulative_gpa.total_sks
+    
+    user_cumulative_gpa.save()
