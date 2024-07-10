@@ -76,7 +76,7 @@ def get_paged_obj(objs, page):
 
 
 def check_notexist_and_create_user_cumulative_gpa(user):
-    user_cumulative_gpa = UserCumulativeGPA.objects.get(user = user)
+    user_cumulative_gpa = UserCumulativeGPA.objects.filter(user = user).first()
     if not user_cumulative_gpa :
         user_cumulative_gpa = UserCumulativeGPA.objects.create(user = user)
         user_cumulative_gpa.save()
