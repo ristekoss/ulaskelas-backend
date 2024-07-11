@@ -117,3 +117,31 @@ class ScoreComponent(models.Model):
     weight = models.FloatField()
     score = models.FloatField()
     
+class UserCumulativeGPA(models.Model):
+    """
+    User's Cumulative GPA/IPK (Indeks Prestasi Kumulatif)
+    """
+    user = models.ForeignKey(Profile, on_delete=CASCADE)
+    cumulative_gpa = models.FloatField(default=0)
+    total_gpa = models.FloatField(default=0)
+    total_sks = models.PositiveIntegerField(default=0)
+
+class UserGPA(models.Model):
+    """
+    User's GPA/IP (Indeks Prestasi) for the given semester
+    """
+    userCumulativeGPA = models.ForeignKey(UserCumulativeGPA, on_delete=CASCADE)
+    given_semester = models.PositiveSmallIntegerField(editable=False)
+    total_sks = models.PositiveIntegerField()
+    semester_gpa = models.FloatField()
+
+    def save(self, *args, **kwargs):
+        # On save, autoincrement given_semester, starting with 1
+        if not self.pk :
+            # If there's no UserGPA for the current user, initialize it as 1, otherwise increment it by 1
+            last_user_gpa = UserGPA.objects.filter(userCumulativeGPA__user=self.userCumulativeGPA.user).order_by('given_semester').last()
+            if last_user_gpa :
+                self.given_semester = last_user_gpa.given_semester + 1
+            else :
+                self.given_semester = 1
+        super(UserGPA, self).save(*args, **kwargs)

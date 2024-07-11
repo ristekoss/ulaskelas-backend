@@ -3,7 +3,7 @@ from main.utils import get_profile_term
 from rest_framework import serializers
 from django.db.models import Avg
 
-from .models import Calculator, Course, Profile, Review, ScoreComponent, Tag, Bookmark
+from .models import Calculator, Course, Profile, Review, ScoreComponent, Tag, Bookmark, UserCumulativeGPA, UserGPA
 
 # class CurriculumSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -278,3 +278,19 @@ class ScoreComponentSerializer(serializers.ModelSerializer):
 
     def get_calculator_id(self, obj):
         return obj.calculator.id
+    
+class UserCumulativeGPASerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField('get_user')
+    class Meta:
+        model = UserCumulativeGPA
+        fields = ('user', 'cumulative_gpa', 'total_gpa', 'total_sks')
+    
+    def get_user(self, obj):
+        return obj.user.username
+    
+class UserGPASerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = UserGPA
+        fields = ('given_semester', 'total_sks', 'semester_gpa')
+        read_only_fields = ('given_semester',)
