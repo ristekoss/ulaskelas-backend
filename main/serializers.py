@@ -289,8 +289,6 @@ class UserCumulativeGPASerializer(serializers.ModelSerializer):
         return obj.user.username
     
 class UserGPASerializer(serializers.ModelSerializer):
-
     class Meta:
         model = UserGPA
         fields = ('given_semester', 'total_sks', 'semester_gpa')
-        read_only_fields = ('given_semester',)

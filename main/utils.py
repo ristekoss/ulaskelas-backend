@@ -93,16 +93,21 @@ def validate_body_minimum(request, attrs):
 def add_semester_gpa(user_cumulative_gpa, total_sks, semester_gpa):
     user_cumulative_gpa.total_sks += total_sks
     user_cumulative_gpa.total_gpa += semester_gpa * total_sks
-    user_cumulative_gpa.cumulative_gpa = user_cumulative_gpa.total_gpa / user_cumulative_gpa.total_sks
-    user_cumulative_gpa.save()
+    update_cumulative_gpa(user_cumulative_gpa)
 
 def delete_semester_gpa(user_cumulative_gpa, total_sks, semester_gpa):
     user_cumulative_gpa.total_sks -= total_sks
     user_cumulative_gpa.total_gpa -= semester_gpa * total_sks
+    update_cumulative_gpa(user_cumulative_gpa)
 
+def update_cumulative_gpa(user_cumulative_gpa):
     if user_cumulative_gpa.total_sks == 0:
         user_cumulative_gpa.cumulative_gpa = 0
     else:
         user_cumulative_gpa.cumulative_gpa = user_cumulative_gpa.total_gpa / user_cumulative_gpa.total_sks
-    
+
     user_cumulative_gpa.save()
+
+def update_semester_gpa(user_cumulative_gpa, old_sks, old_gpa, new_sks, new_gpa):
+    delete_semester_gpa(user_cumulative_gpa, old_sks, old_gpa)
+    add_semester_gpa(user_cumulative_gpa, new_sks, new_gpa)
