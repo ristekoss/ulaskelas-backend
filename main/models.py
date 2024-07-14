@@ -140,3 +140,10 @@ class UserGPA(models.Model):
         constraints = [
             UniqueConstraint(fields=['userCumulativeGPA', 'given_semester'], name='unique_userCumulativeGPA_given_semester')
         ]
+
+class CourseSemester(models.Model):
+    """
+    This class tells what course(s) are taken in a semester
+    """
+    semester = models.ForeignKey(UserGPA, on_delete=CASCADE)
+    course = models.ForeignKey(Course, on_delete=CASCADE)
