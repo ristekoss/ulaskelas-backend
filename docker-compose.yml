@@ -3,9 +3,9 @@ version: "3.9"
 services:
   postgres:
     container_name: ulas-pg
-    image: postgres:alpine
+    image: postgres:15-alpine
     volumes:
-      - ./data/db:/var/lib/postgresql/data
+      - ulas_db:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
@@ -13,3 +13,6 @@ services:
     ports:
       - "5432:5432"
     restart: unless-stopped
+
+volumes:
+  ulas_db:

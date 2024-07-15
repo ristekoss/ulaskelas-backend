@@ -2,10 +2,19 @@ import requests
 from main.models import Course
 from django.conf import settings as django_settings
 import logging
+import environ
 
 def update_courses():
+    env = environ.Env()
     print("UPDATE CALLED")
-    json = _get_courses_json()
+    
+    url_ik = env("SUNJAD_BASE_URL") + '/susunjadwal/api/majors/60f4f2b38cd53dc0e3b371b9/all_courses'
+    _update_courses_on_url(url_ik)
+    url_si = env("SUNJAD_BASE_URL") + '/susunjadwal/api/majors/60f505258cd53dc0e3b371d4/all_courses'
+    _update_courses_on_url(url_si)
+                
+def _update_courses_on_url(url: str):
+    json = _fetch_courses_json(url)
     logging.info("Sunjad courses response: {}".format(json))
 
     if json is not None:
@@ -15,9 +24,7 @@ def update_courses():
                 course = getCourse(course_json)
                 course.save()
 
-def _get_courses_json():
-    url = django_settings.SUNJAD_BASE_URL + 'susunjadwal/api/courses'
-
+def _fetch_courses_json(url: str):
     r = requests.get(url)
 
     try:
