@@ -133,8 +133,8 @@ class UserGPA(models.Model):
     """
     userCumulativeGPA = models.ForeignKey(UserCumulativeGPA, on_delete=CASCADE)
     given_semester = models.CharField(max_length=20)
-    total_sks = models.PositiveIntegerField()
-    semester_gpa = models.FloatField()
+    total_sks = models.PositiveIntegerField(default=0)
+    semester_gpa = models.FloatField(default=0)
 
     class Meta:
         constraints = [
@@ -147,3 +147,8 @@ class CourseSemester(models.Model):
     """
     semester = models.ForeignKey(UserGPA, on_delete=CASCADE)
     course = models.ForeignKey(Course, on_delete=CASCADE)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=['semester', 'course'], name='unique_semester_course')
+        ]

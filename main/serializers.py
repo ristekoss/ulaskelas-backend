@@ -308,4 +308,21 @@ class CourseSemesterSerializer(serializers.ModelSerializer):
 class CourseForSemesterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
-        fields = [field.name for field in model._meta.fields]
+        fields = ['id', 'name']
+
+class SemesterWithCourseSerializer(serializers.ModelSerializer):
+    semester = serializers.SerializerMethodField('get_semester')
+    courses = serializers.SerializerMethodField('get_courses')
+
+    class Meta:
+        model = UserGPA
+        fields = ['semester', 'courses']
+
+    def get_courses(self, obj):
+        list_courses = CourseSemester.objects.filter(semester=obj)
+        list_courses = [course_semester.course for course_semester in list_courses]
+        return CourseForSemesterSerializer(list_courses, many=True).data
+    
+    def get_semester(self, obj):
+        return UserGPASerializer(obj).data
+        

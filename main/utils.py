@@ -5,7 +5,8 @@ from django.core.paginator import Paginator
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Profile, UserCumulativeGPA
+
+from .models import Course, Profile, UserCumulativeGPA
 
 
 def process_sso_profile(sso_profile):
@@ -111,3 +112,26 @@ def update_cumulative_gpa(user_cumulative_gpa):
 def update_semester_gpa(user_cumulative_gpa, old_sks, old_gpa, new_sks, new_gpa):
     delete_semester_gpa(user_cumulative_gpa, old_sks, old_gpa)
     add_semester_gpa(user_cumulative_gpa, new_sks, new_gpa)
+
+def get_course_with_prefix(term, course_code):
+    return Course.objects.filter(term=term, code__startswith=course_code)
+
+MATKUL_WAJIB_UI_CODE = "UIGE"
+MATKUL_WAJIB_FASILKOM_CODE = "CSGE"
+MATKUL_WAJIB_IK_CODE = "CSCM"
+MATKUL_WAJIB_SI_CODE = "CSIM"
+
+def get_fasilkom_courses(study_program):
+    study_program_courses = [[]]
+    for term in range(1,9):
+        term_course = []
+        term_course.extend(get_course_with_prefix(term, MATKUL_WAJIB_UI_CODE))
+        term_course.extend(get_course_with_prefix(term, MATKUL_WAJIB_FASILKOM_CODE))
+
+        if "Ilmu Komputer" in study_program:
+            term_course.extend(get_course_with_prefix(term, MATKUL_WAJIB_IK_CODE))
+        else :
+            term_course.extend(get_course_with_prefix(term, MATKUL_WAJIB_SI_CODE))
+        
+        study_program_courses.append(term_course)
+    return study_program_courses
