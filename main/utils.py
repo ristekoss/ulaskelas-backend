@@ -6,7 +6,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Course, Profile, UserCumulativeGPA
+from .models import Course, Profile, UserCumulativeGPA, UserGPA
 
 
 def process_sso_profile(sso_profile):
@@ -91,17 +91,48 @@ def validate_body_minimum(request, attrs):
             return None
     return response(error="None of the following attributes are present in the request data: {}.".format(attrs), status=status.HTTP_404_NOT_FOUND)
 
-def add_semester_gpa(user_cumulative_gpa, total_sks, semester_gpa):
+def add_course_to_semester(semester: UserGPA, sks: int, score: float=0.0):
+    semester.total_sks += sks
+    semester.semester_mutu += sks * score
+    update_gpa(semester)
+
+def delete_course_to_semester(semester: UserGPA, sks: int, score: float):
+    semester.total_sks -= sks
+    semester.semester_mutu -= sks * score
+    update_gpa(semester)
+
+def update_gpa(semester: UserGPA):
+    if semester.total_sks == 0:
+        semester.semester_gpa = 0
+    else:
+        semester.semester_gpa = semester.semester_mutu / semester.total_sks
+    semester.save()
+
+def update_course_score(user_cumulative_gpa: UserCumulativeGPA, 
+                        semester: UserGPA, 
+                        prev_sks: int, prev_score: float, cur_sks: int, cur_score: float):
+    old_semester_sks, old_semester_gpa = semester.total_sks, semester.semester_gpa
+    delete_course_to_semester(semester, prev_sks, prev_score)
+    add_course_to_semester(semester, cur_sks, cur_score)
+    new_semester_sks, new_semester_gpa = semester.total_sks, semester.semester_gpa
+
+    update_semester_gpa(user_cumulative_gpa=user_cumulative_gpa,
+                        old_gpa=old_semester_gpa,
+                        old_sks=old_semester_sks,
+                        new_gpa=new_semester_gpa,
+                        new_sks=new_semester_sks)
+
+def add_semester_gpa(user_cumulative_gpa: UserCumulativeGPA, total_sks: int, semester_gpa: float):
     user_cumulative_gpa.total_sks += total_sks
     user_cumulative_gpa.total_gpa += semester_gpa * total_sks
     update_cumulative_gpa(user_cumulative_gpa)
 
-def delete_semester_gpa(user_cumulative_gpa, total_sks, semester_gpa):
+def delete_semester_gpa(user_cumulative_gpa: UserCumulativeGPA, total_sks: int, semester_gpa: float):
     user_cumulative_gpa.total_sks -= total_sks
     user_cumulative_gpa.total_gpa -= semester_gpa * total_sks
     update_cumulative_gpa(user_cumulative_gpa)
 
-def update_cumulative_gpa(user_cumulative_gpa):
+def update_cumulative_gpa(user_cumulative_gpa: UserCumulativeGPA):
     if user_cumulative_gpa.total_sks == 0:
         user_cumulative_gpa.cumulative_gpa = 0
     else:
@@ -109,7 +140,8 @@ def update_cumulative_gpa(user_cumulative_gpa):
 
     user_cumulative_gpa.save()
 
-def update_semester_gpa(user_cumulative_gpa, old_sks, old_gpa, new_sks, new_gpa):
+def update_semester_gpa(user_cumulative_gpa: UserCumulativeGPA, 
+                        old_sks: int, old_gpa: float, new_sks: int, new_gpa: float):
     delete_semester_gpa(user_cumulative_gpa, old_sks, old_gpa)
     add_semester_gpa(user_cumulative_gpa, new_sks, new_gpa)
 
@@ -148,3 +180,23 @@ def get_fasilkom_courses(study_program):
         
         study_program_courses.append(term_course)
     return study_program_courses
+
+def get_score(score: float) -> float :
+    if score < 40:
+        return 0    # E
+    if score < 55:
+        return 1.0  # D
+    if score < 60:
+        return 2.0  # C
+    if score < 65:
+        return 2.3  # C+
+    if score < 70:
+        return 2.7  # B-
+    if score < 75:
+        return 3.0  # B
+    if score < 80:
+        return 3.3  # B+
+    if score < 85:
+        return 3.7  # A-
+    
+    return 4.0      # A

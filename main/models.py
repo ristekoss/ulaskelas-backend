@@ -130,11 +130,13 @@ class UserCumulativeGPA(models.Model):
 class UserGPA(models.Model):
     """
     User's GPA/IP (Indeks Prestasi) for the given semester
+    Note that mutu = sum(sks * nilai) for every course in the given_semester
     """
     userCumulativeGPA = models.ForeignKey(UserCumulativeGPA, on_delete=CASCADE)
     given_semester = models.CharField(max_length=20)
     total_sks = models.PositiveIntegerField(default=0)
     semester_gpa = models.FloatField(default=0)
+    semester_mutu = models.FloatField(default=0)
 
     class Meta:
         constraints = [
@@ -147,6 +149,7 @@ class CourseSemester(models.Model):
     """
     semester = models.ForeignKey(UserGPA, on_delete=CASCADE)
     course = models.ForeignKey(Course, on_delete=CASCADE)
+    calculator = models.ForeignKey(Calculator, on_delete=CASCADE, null=True)
 
     class Meta:
         constraints = [

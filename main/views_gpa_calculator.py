@@ -1,11 +1,15 @@
 import logging
 
+from django.urls import reverse
+import requests
 from rest_framework.decorators import api_view
 from rest_framework import status
-from .serializers import UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer
 
-from .utils import response, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses
-from .models import Profile, UserGPA, Course, CourseSemester
+from main.views_calculator import score_component
+from .serializers import ScoreComponentSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer
+
+from .utils import get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params
+from .models import Calculator, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, Course, CourseSemester
 from django.db.models import F
 
 logger = logging.getLogger(__name__)
@@ -63,7 +67,7 @@ def gpa_calculator(request):
 		return response(data=UserGPASerializer(user_gpas, many=True).data, status=status.HTTP_201_CREATED)
 
 	
-@api_view(['GET', 'DELETE', 'PUT', 'POST'])
+@api_view(['GET', 'DELETE'])
 def gpa_calculator_with_semester(request, given_semester):
 	user = Profile.objects.get(username=str(request.user))
 	user_cumulative_gpa = check_notexist_and_create_user_cumulative_gpa(user)
@@ -84,54 +88,6 @@ def gpa_calculator_with_semester(request, given_semester):
 		user_gpa.delete()
 
 		return response(status=status.HTTP_204_NO_CONTENT)
-
-	if request.method == 'PUT':
-		is_valid = validate_body_minimum(request, ['total_sks', 'semester_gpa'])
-
-		if is_valid != None:
-			return is_valid
-		
-		if user_gpa is None:
-			return response(error="There is no object with given_semester={}.".format(given_semester), status=status.HTTP_404_NOT_FOUND)
-		
-		total_sks = request.data.get('total_sks') or user_gpa.total_sks
-		semester_gpa = request.data.get('semester_gpa') or user_gpa.semester_gpa
-
-		#Updates Cumulative GPA / Indeks Prestasi Kumulatif
-		update_semester_gpa(user_cumulative_gpa=user_cumulative_gpa, \
-													old_sks=user_gpa.total_sks, \
-													old_gpa=user_gpa.semester_gpa, \
-													new_sks=total_sks, \
-													new_gpa=semester_gpa)
-		
-		user_gpa.total_sks = total_sks
-		user_gpa.semester_gpa = semester_gpa
-		user_gpa.save()
-
-		return response(data=UserGPASerializer(user_gpa).data, status=status.HTTP_200_OK)
-	
-	if request.method == 'POST':
-		is_valid = validate_body(request, ['semester_gpa', 'total_sks'])
-
-		if is_valid != None :
-			return is_valid
-		
-		try:
-			semester_gpa = request.data.get('semester_gpa')
-			total_sks = request.data.get('total_sks')
-
-			user_gpa = UserGPA.objects.create(userCumulativeGPA=user_cumulative_gpa, \
-												given_semester=given_semester, \
-												total_sks=total_sks, \
-												semester_gpa=semester_gpa)
-			
-			add_semester_gpa(user_cumulative_gpa, 
-												total_sks=total_sks, 
-												semester_gpa=semester_gpa)
-
-			return response(data=UserGPASerializer(user_gpa).data, status=status.HTTP_201_CREATED)
-		except Exception as e:
-			return response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET', 'DELETE', 'POST'])
 def course_semester(request):
@@ -184,8 +140,17 @@ def course_semester(request):
 
 				if course is None:
 					return response(error="No such course with course_id={}".format(course_id), status=status.HTTP_404_NOT_FOUND)
+				
+				calculator = Calculator.objects.create(user=user, course=course)
 
-				course_semester = CourseSemester.objects.create(course=course, semester=semester)
+				# Update gpa (ip) and cumulative gpa (ipk)
+				add_course_to_semester(semester=semester, sks=course.sks)
+				add_semester_gpa(user_cumulative_gpa=user_cumulative_gpa,
+										total_sks=course.sks,
+										semester_gpa=0)
+
+				course_semester = CourseSemester.objects.create(course=course, semester=semester, calculator=calculator)
+				
 		except Exception as e:
 			return response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
 
@@ -210,3 +175,97 @@ def course_semester_with_course_id(request, course_id):
 		
 		CourseSemester.objects.filter(course__pk=course_id).delete()
 		return response(status=status.HTTP_204_NO_CONTENT)
+	
+@api_view(['GET', 'POST', 'DELETE', 'PUT'])
+def course_component(request):
+	user = Profile.objects.get(username=str(request.user))
+	user_cumulative_gpa = check_notexist_and_create_user_cumulative_gpa(user)
+
+	if request.method == 'GET':
+		is_valid = validate_params(request, ['calculator_id'])
+
+		if is_valid != None:
+			is_valid
+
+		calculator_id = request.query_params.get('calculator_id')
+		calculator = Calculator.objects.filter(id=calculator_id).first()
+
+		if calculator is None:
+			return response(error="Calculator not found", status=status.HTTP_404_NOT_FOUND)
+
+		score_components = ScoreComponent.objects.filter(calculator=calculator)
+		return response(data=ScoreComponentSerializer(score_components, many=True).data)
+
+	if request.method == 'POST':
+		is_valid = validate_body(request, ['calculator_id', 'name', 'weight', 'score'])
+
+		if is_valid != None:
+			return is_valid
+		
+		calculator_id = request.data.get('calculator_id')
+		name = request.data.get('name')
+		weight = request.data.get('weight')
+		score = request.data.get('score')
+
+		calculator = Calculator.objects.filter(pk=calculator_id).first()
+		if calculator is None:
+			return response(error="There is no calculator with id={}".format(calculator_id), status=status.HTTP_404_NOT_FOUND)
+		course_semester = CourseSemester.objects.filter(calculator=calculator).first()
+		if course_semester is None:
+			return response(error="There is no calculator with id={}".format(calculator_id), status=status.HTTP_404_NOT_FOUND)
+		semester = course_semester.semester
+		course = course_semester.course
+
+		prev_sks = course.sks
+		prev_score = get_score(calculator.total_score)
+
+		score_component = ScoreComponent.objects.create(calculator=calculator, name=name, weight=weight, score=score)
+		calculator.total_score += (score * weight / 100)
+		calculator.total_percentage += weight
+		calculator.save()
+		
+		update_course_score(user_cumulative_gpa=user_cumulative_gpa,
+												semester=semester,
+												prev_sks=prev_sks, prev_score=prev_score,
+												cur_sks=course.sks, cur_score=get_score(calculator.total_score))
+		
+		score_component_value = ScoreComponent.objects.filter(calculator=calculator, name=name, weight=weight, score=score).first()
+		return response(data=ScoreComponentSerializer(score_component_value).data, status=status.HTTP_201_CREATED)
+
+	if request.method == 'DELETE':
+		is_valid = validate_params(request, ['id'])
+
+		if is_valid != None:
+				return is_valid
+
+		component_id = request.query_params.get('id')
+
+		score_component = ScoreComponent.objects.filter(id=component_id).first()
+
+		if score_component is None:
+				return response(error="Score component not found", status=status.HTTP_404_NOT_FOUND)
+
+		calculator = Calculator.objects.filter(id=score_component.calculator.id).first()
+		if calculator is None:
+			return response(error="There is no calculator with id={}".format(score_component.calculator.id), status=status.HTTP_404_NOT_FOUND)
+		course_semester = CourseSemester.objects.filter(calculator=calculator).first()
+		if course_semester is None:
+			return response(error="There is no calculator with id={}".format(score_component.calculator.id), status=status.HTTP_404_NOT_FOUND)
+		semester = course_semester.semester
+		course = course_semester.course
+
+		prev_sks = course.sks
+		prev_score = get_score(calculator.total_score)
+
+		calculator.total_score -= (score_component.score * score_component.weight / 100)
+		calculator.total_percentage -= score_component.weight
+
+		update_course_score(user_cumulative_gpa=user_cumulative_gpa,
+										semester=semester,
+										prev_sks=prev_sks, prev_score=prev_score,
+										cur_sks=course.sks, cur_score=get_score(calculator.total_score))
+
+		score_component.delete()
+		calculator.save()
+
+		return response(status=status.HTTP_200_OK)

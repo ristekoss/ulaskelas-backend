@@ -292,7 +292,7 @@ class UserGPASerializer(serializers.ModelSerializer):
     pk = serializers.IntegerField(read_only=True)
     class Meta:
         model = UserGPA
-        fields = ('pk', 'given_semester', 'total_sks', 'semester_gpa')
+        fields = ('pk', 'given_semester', 'total_sks', 'semester_gpa', 'semester_mutu')
 
 class CourseSemesterSerializer(serializers.ModelSerializer):
     pk = serializers.IntegerField(read_only=True)
@@ -312,17 +312,20 @@ class CourseForSemesterSerializer(serializers.ModelSerializer):
 
 class SemesterWithCourseSerializer(serializers.ModelSerializer):
     semester = serializers.SerializerMethodField('get_semester')
-    courses = serializers.SerializerMethodField('get_courses')
+    courses_calculator = serializers.SerializerMethodField('get_courses_calculator')
 
     class Meta:
         model = UserGPA
-        fields = ['semester', 'courses']
+        fields = ['semester', 'courses_calculator']
 
-    def get_courses(self, obj):
+    def get_courses_calculator(self, obj):
         list_courses = CourseSemester.objects.filter(semester=obj)
         list_courses = [course_semester.course for course_semester in list_courses]
-        return CourseForSemesterSerializer(list_courses, many=True).data
+        list_calculator = [
+            CourseSemester.objects.filter(semester=obj, course=course).first().calculator 
+            for course in list_courses
+        ]
+        return CalculatorSerializer(list_calculator, many=True).data
     
     def get_semester(self, obj):
         return UserGPASerializer(obj).data
-        
