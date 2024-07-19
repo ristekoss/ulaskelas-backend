@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view
 from rest_framework import status
 
 from main.views_calculator import score_component
-from .serializers import ScoreComponentSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer
+from .serializers import CalculatorSerializer, ScoreComponentSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer
 
 from .utils import get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params
 from .models import Calculator, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, Course, CourseSemester
@@ -47,6 +47,9 @@ def gpa_calculator(request):
 		if is_valid != None:
 			return is_valid
 		
+		is_auto_fill = request.query_params.get('is_auto_fill')
+		courses = get_fasilkom_courses(str(user.study_program))
+		
 		given_semesters = []
 		try:
 			given_semesters = request.data.get('given_semesters', [])
@@ -55,14 +58,55 @@ def gpa_calculator(request):
 		except Exception as e:
 				return response(error="given_semesters should be a non-empty list", status=status.HTTP_400_BAD_REQUEST)
 		
-		user_gpas = []
+		given_semesters = list(set(given_semesters)) #remove duplicate given_semester
+
+		'''
+		When handling a semester (given_semester), theres 2 possible error:
+		1. The length (string) of given_semester exceeds 20 characters
+			Solution: insert/append it to character_limit_exceeded_semester
+		2. There is already a semesester with given_semester=given_semester
+			Solution: insert/append it to duplicated_semester
 		
-		try:
-			for given_semester in given_semesters:
-				user_gpa = UserGPA.objects.create(userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester)
-				user_gpas.append(user_gpa)
-		except Exception as e:
-			return response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
+		if a given_semester passed this 2 checks, it means that we are ready to create a new object UserGPA with given_semester.
+		'''
+		character_limit_exceeded_semester = []
+		duplicated_semester = []
+		valid_semester = []
+		for given_semester in given_semesters:
+			if len(given_semester) > 20:
+				character_limit_exceeded_semester.append(given_semester)
+				continue
+
+			semester = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester).first()
+			if semester != None:
+				duplicated_semester.append(given_semester)
+				continue
+			
+			valid_semester.append(given_semester)
+
+		user_gpas = []
+		for given_semester in valid_semester:
+			semester = UserGPA.objects.create(userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester)
+
+			if is_auto_fill != None and str(given_semester).isnumeric():
+				try:
+					given_semester_int = int(given_semester)
+					list_courses = courses[given_semester_int]
+					for course in list_courses:
+						calculator = Calculator.objects.create(user=user, course=course)
+
+						# Update gpa (ip) and cumulative gpa (ipk)
+						add_course_to_semester(semester=semester, sks=course.sks)
+						add_semester_gpa(user_cumulative_gpa=user_cumulative_gpa,
+												total_sks=course.sks,
+												semester_gpa=0)
+						
+						course_semester = CourseSemester.objects.create(course=course, semester=semester, calculator=calculator)
+				except Exception as e:
+					return response(error=str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+			
+			semester = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester).first()
+			user_gpas.append(semester)
 		
 		return response(data=UserGPASerializer(user_gpas, many=True).data, status=status.HTTP_201_CREATED)
 
@@ -121,7 +165,7 @@ def course_semester(request):
 		if is_valid != None:
 			return is_valid
 		
-		course_id, given_semester = [], 0
+		course_ids, given_semester = [], 0
 		try:
 			course_ids = request.data.get('course_ids', [])
 			given_semester = request.data.get('given_semester')
@@ -134,27 +178,51 @@ def course_semester(request):
 		if semester is None:
 			return response(error="No such semester with given_semester={}".format(given_semester), status=status.HTTP_404_NOT_FOUND)
 		
-		try:
-			for course_id in course_ids:
-				course = Course.objects.filter(pk=course_id).first()
+		'''
+		When handling a course_id, there are 2 possible error:
+		1.There is no course with id=course_id
+			Solution: insert/append it to nonexsistent_course_ids
+		2. There exists course_semester with course.id=course_id and semester=semester. However, (course,semester) should be unique for all course_semester
+			Solution: insert/append it to duplicated_course_semester_ids
+		
+		if a course_id passed this 2 checks, it means that we are ready to create a new object course_semester with course_id.
+		'''
+		duplicated_course_semester_ids = []
+		nonexsistent_course_ids = []
+		valid_course_ids = []
+		for course_id in course_ids :
+			course = Course.objects.filter(pk=course_id).first()
+			if course is None:
+				nonexsistent_course_ids.append(course_id)
+				continue
 
-				if course is None:
-					return response(error="No such course with course_id={}".format(course_id), status=status.HTTP_404_NOT_FOUND)
-				
-				calculator = Calculator.objects.create(user=user, course=course)
+			course_semester = CourseSemester.objects.filter(course=course, semester=semester).first()
+			if course_semester != None:
+				duplicated_course_semester_ids.append(course_id)
+				continue
 
-				# Update gpa (ip) and cumulative gpa (ipk)
-				add_course_to_semester(semester=semester, sks=course.sks)
-				add_semester_gpa(user_cumulative_gpa=user_cumulative_gpa,
-										total_sks=course.sks,
-										semester_gpa=0)
+			valid_course_ids.append(course_id)
+		
+		print(valid_course_ids)
+		
+		for course_id in valid_course_ids:
+			course = Course.objects.filter(pk=course_id).first()
+			
+			calculator = Calculator.objects.create(user=user, course=course)
 
-				course_semester = CourseSemester.objects.create(course=course, semester=semester, calculator=calculator)
-				
-		except Exception as e:
-			return response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
+			# Update gpa (ip) and cumulative gpa (ipk)
+			add_course_to_semester(semester=semester, sks=course.sks)
+			add_semester_gpa(user_cumulative_gpa=user_cumulative_gpa,
+									total_sks=course.sks,
+									semester_gpa=0)
 
-		return response(data=SemesterWithCourseSerializer(semester).data, status=status.HTTP_201_CREATED)
+			course_semester = CourseSemester.objects.create(course=course, semester=semester, calculator=calculator)
+
+		return response(data={'updated_course':SemesterWithCourseSerializer(semester).data,
+													'duplicated_course_semester_ids': duplicated_course_semester_ids,
+													'nonexistent_course_ids': nonexsistent_course_ids,
+													'inserted_course_ids': valid_course_ids
+												}, status=status.HTTP_201_CREATED)
 
 @api_view(['DELETE'])
 def course_semester_with_course_id(request, course_id):
@@ -194,7 +262,10 @@ def course_component(request):
 			return response(error="Calculator not found", status=status.HTTP_404_NOT_FOUND)
 
 		score_components = ScoreComponent.objects.filter(calculator=calculator)
-		return response(data=ScoreComponentSerializer(score_components, many=True).data)
+		return response(data={
+			'score_component': ScoreComponentSerializer(score_components, many=True).data,
+			'calculator': CalculatorSerializer(calculator).data
+		})
 
 	if request.method == 'POST':
 		is_valid = validate_body(request, ['calculator_id', 'name', 'weight', 'score'])
