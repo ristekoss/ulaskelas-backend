@@ -3,7 +3,7 @@ from main.utils import get_profile_term
 from rest_framework import serializers
 from django.db.models import Avg
 
-from .models import Calculator, Course, Profile, Review, ScoreComponent, Tag, Bookmark, UserCumulativeGPA, UserGPA
+from .models import Calculator, Course, Profile, Review, ScoreComponent, Tag, Bookmark, UserCumulativeGPA, UserGPA, CourseSemester
 
 # class CurriculumSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -289,8 +289,43 @@ class UserCumulativeGPASerializer(serializers.ModelSerializer):
         return obj.user.username
     
 class UserGPASerializer(serializers.ModelSerializer):
+    pk = serializers.IntegerField(read_only=True)
+    class Meta:
+        model = UserGPA
+        fields = ('pk', 'given_semester', 'total_sks', 'semester_gpa', 'semester_mutu')
+
+class CourseSemesterSerializer(serializers.ModelSerializer):
+    pk = serializers.IntegerField(read_only=True)
+    semester = serializers.SerializerMethodField('get_semester')
+    course = CourseSerializer()
+    class Meta:
+        model = CourseSemester
+        fields = ('pk', 'semester', 'course')
+
+    def get_semester(self, obj):
+        return obj.semester.given_semester
+    
+class CourseForSemesterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ['id', 'name']
+
+class SemesterWithCourseSerializer(serializers.ModelSerializer):
+    semester = serializers.SerializerMethodField('get_semester')
+    courses_calculator = serializers.SerializerMethodField('get_courses_calculator')
 
     class Meta:
         model = UserGPA
-        fields = ('given_semester', 'total_sks', 'semester_gpa')
-        read_only_fields = ('given_semester',)
+        fields = ['semester', 'courses_calculator']
+
+    def get_courses_calculator(self, obj):
+        list_courses = CourseSemester.objects.filter(semester=obj)
+        list_courses = [course_semester.course for course_semester in list_courses]
+        list_calculator = [
+            CourseSemester.objects.filter(semester=obj, course=course).first().calculator 
+            for course in list_courses
+        ]
+        return CalculatorSerializer(list_calculator, many=True).data
+    
+    def get_semester(self, obj):
+        return UserGPASerializer(obj).data
