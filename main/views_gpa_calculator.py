@@ -8,7 +8,7 @@ from rest_framework import status
 from main.views_calculator import score_component
 from .serializers import CalculatorSerializer, ScoreComponentSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer
 
-from .utils import get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params
+from .utils import get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester
 from .models import Calculator, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, Course, CourseSemester
 from django.db.models import F
 
@@ -150,15 +150,6 @@ def course_semester(request):
 			return response(error="There is no user_gpa with given_semester={}".format(given_semester), status=status.HTTP_404_NOT_FOUND)
 
 		return response(data=SemesterWithCourseSerializer(user_gpa).data)
-
-	if request.method == 'DELETE':
-		given_semester = request.data.get('given_semester')
-
-		if given_semester is None :
-			CourseSemester.objects.filter(semester__userCumulativeGPA__user=user).delete()
-		else :
-			CourseSemester.objects.filter(semester__userCumulativeGPA__user=user, semester__given_semester=given_semester).delete()
-		return response(status=status.HTTP_200_OK)
 	
 	if request.method == 'POST':
 		is_valid = validate_body(request, ['course_ids', 'given_semester'])
@@ -230,18 +221,26 @@ def course_semester_with_course_id(request, course_id):
 	user_cumulative_gpa = check_notexist_and_create_user_cumulative_gpa(user)
 
 	if request.method == 'DELETE':
+		is_valid = validate_body(request, ['given_semester'])
+		if is_valid != None:
+			return is_valid
 		given_semester = request.data.get('given_semester')
 
-		if given_semester != None :
-			semester = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester).first()
-
-			if semester is None:
-				return response(error="No such semester with given_semester={}".format(given_semester), status=status.HTTP_404_NOT_FOUND)
-			
-			CourseSemester.objects.filter(course__pk=course_id, semester=semester).delete()
-			return response(status=status.HTTP_204_NO_CONTENT)
+		semester = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester).first()
+		if semester is None:
+			return response(error="No such semester with given_semester={}".format(given_semester), status=status.HTTP_404_NOT_FOUND)
 		
-		CourseSemester.objects.filter(course__pk=course_id).delete()
+		course_semester = CourseSemester.objects.filter(course__pk=course_id, calculator__user=user, semester__given_semester=given_semester).first()
+		if course_semester is None:
+			return response(error="No matching course semester", status=status.HTTP_404_NOT_FOUND)
+		
+		# Update gpa (ip) and cumulative gpa (ipk)
+		delete_course_to_semester(semester=semester, sks=course_semester.course.sks, score=get_score(course_semester.calculator.total_score))
+		delete_semester_gpa(user_cumulative_gpa=user_cumulative_gpa,
+								total_sks=course_semester.course.sks,
+								semester_gpa=0)
+		
+		course_semester.delete()
 		return response(status=status.HTTP_204_NO_CONTENT)
 	
 @api_view(['GET', 'POST', 'DELETE', 'PUT'])
