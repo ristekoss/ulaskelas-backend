@@ -9,7 +9,7 @@ from rest_framework import status
 from main.views_calculator import score_component
 from .serializers import CalculatorSerializer, ScoreComponentSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer
 
-from .utils import get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester
+from .utils import get_recommended_score, get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester
 from .models import Calculator, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, Course, CourseSemester, ScoreSubcomponent
 from django.db.models import F
 
@@ -253,9 +253,10 @@ def course_component(request):
 		is_valid = validate_params(request, ['calculator_id'])
 
 		if is_valid != None:
-			is_valid
+			return is_valid
 
 		calculator_id = request.query_params.get('calculator_id')
+		target_score = int(request.query_params.get('target_score') or 85)
 		calculator = Calculator.objects.filter(id=calculator_id).first()
 
 		if calculator is None:
@@ -264,7 +265,8 @@ def course_component(request):
 		score_components = ScoreComponent.objects.filter(calculator=calculator)
 		return response(data={
 			'score_component': ScoreComponentSerializer(score_components, many=True).data,
-			'calculator': CalculatorSerializer(calculator).data
+			'calculator': CalculatorSerializer(calculator).data,
+			'recommended_score': get_recommended_score(calculator, target_score)
 		})
 
 	if request.method == 'POST':
@@ -352,7 +354,21 @@ def course_subcomponent(request):
 		if is_valid != None:
 			return is_valid
 		
-		# score_subcomponent_detail = ScoreSubcomponent.objects.filter(score_component_id)
+		score_component_id = request.query_params.get('score_component_id')
+		target_score = int(request.query_params.get('target_score') or 85)
+		
+		score_component = ScoreComponent.objects.filter(pk=score_component_id).first()
+		if score_component is None:
+			return response(error="Score Component not found", status=status.HTTP_404_NOT_FOUND)
+		calculator = score_component.calculator
+		score_subcomponent_details = ScoreSubcomponent.objects.filter(score_component=score_component).order_by('subcomponent_number')
+		list_score_subcomponent = [score_subcomponent.subcomponent_score for score_subcomponent in score_subcomponent_details]
+		return response(data={
+			'score_component': ScoreComponentSerializer(score_component).data,
+			'list_subcomponent_score': list_score_subcomponent,
+			'recommended_score': get_recommended_score(calculator, target_score)
+		}, status=status.HTTP_200_OK)
+		
 
 	if request.method == 'POST':
 		is_valid = validate_body(request, ['calculator_id', 'name', 'weight', 'frequency', 'scores'])
@@ -437,7 +453,7 @@ def course_subcomponent(request):
 		calculator = score_component.calculator
 		course_semester = CourseSemester.objects.filter(calculator=score_component.calculator).first()
 		if course_semester is None:
-			return response(error="There is no calculator with id={}".format(calculator_id), status=status.HTTP_404_NOT_FOUND)
+			return response(error="No Course Semester", status=status.HTTP_404_NOT_FOUND)
 		semester = course_semester.semester
 		course = course_semester.course
 

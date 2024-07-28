@@ -1,4 +1,5 @@
 from datetime import datetime
+import math
 import os
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
@@ -6,7 +7,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Course, Profile, UserCumulativeGPA, UserGPA
+from .models import Calculator, Course, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, ScoreSubcomponent
 
 
 def process_sso_profile(sso_profile):
@@ -200,3 +201,29 @@ def get_score(score: float) -> float :
         return 3.7  # A-
     
     return 4.0      # A
+
+def get_null_sum_from_component(score_component: ScoreComponent) -> float :
+    frequency = ScoreSubcomponent.objects.filter(score_component=score_component).count()
+    null_sum = 0.0
+    score_subcomponents = ScoreSubcomponent.objects.filter(score_component=score_component)
+    for score_subcomponent in score_subcomponents:
+        null_contribution = 0 if score_subcomponent.subcomponent_score != None else score_component.weight / frequency
+        null_sum += null_contribution
+    return null_sum
+
+def get_null_sum_from_calculator(calculator: Calculator) -> float :
+    null_sum = 0.0
+    score_components = ScoreComponent.objects.filter(calculator=calculator)
+    for score_component in score_components:
+        null_sum += get_null_sum_from_component(score_component)
+    return null_sum
+
+def get_recommended_score(calculator: Calculator, target_score: int) -> float :
+    current_score = calculator.total_score
+    score_left = max(target_score - current_score, 0)
+    percentage_left = get_null_sum_from_calculator(calculator)
+
+    if percentage_left == 0:
+        return 0
+    
+    return score_left / percentage_left * 100
