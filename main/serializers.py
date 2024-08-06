@@ -3,7 +3,7 @@ from main.utils import get_profile_term
 from rest_framework import serializers
 from django.db.models import Avg
 
-from .models import Calculator, Course, Profile, Review, ScoreComponent, Tag, Bookmark, UserCumulativeGPA, UserGPA, CourseSemester, ScoreSubcomponent
+from .models import Calculator, Course, Profile, Question, Review, ScoreComponent, Tag, Bookmark, UserCumulativeGPA, UserGPA, CourseSemester, ScoreSubcomponent
 
 # class CurriculumSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -336,3 +336,45 @@ class SemesterWithCourseSerializer(serializers.ModelSerializer):
     
     def get_semester(self, obj):
         return UserGPASerializer(obj).data
+    
+class AddQuestionSerializer(serializers.Serializer):
+    attachment_file = serializers.FileField()
+    course_id = serializers.IntegerField()
+    question_text = serializers.CharField()
+    is_anonym = serializers.IntegerField()
+
+class TanyaTemanProfileSerializer(serializers.ModelSerializer):
+    program = serializers.SerializerMethodField('get_cleaned_program')
+    generation = serializers.SerializerMethodField('get_generation')
+
+    class Meta:
+        model = Profile
+        fields = ['name', 'program', 'generation']
+
+    def get_cleaned_program(self, obj):
+        # Previously, the format of study program is "Ilmu Komputer (Computer Science)"
+        # So we need to remove the excess translation
+        cleaned_study_program = str(obj.study_program).strip()
+        if "(" in cleaned_study_program:
+            cleaned_study_program = cleaned_study_program[:cleaned_study_program.find("(")]
+
+        return cleaned_study_program.strip()
+    
+    def get_generation(self, obj):
+        generation = 2000 + int(obj.npm[:2])
+        return str(generation)
+
+class QuestionSerializer(serializers.ModelSerializer):
+    user = TanyaTemanProfileSerializer()
+    course = CourseForSemesterSerializer()
+    attachment_url = serializers.SerializerMethodField('get_attachment_url')
+
+    class Meta:
+        model = Question
+        fields = ['id', 'user', 'question_text', 'course', 'is_anonym', 'attachment_url', 'like_count', 'verification_status']
+    
+    def get_user(self, obj):
+        return obj.user.username
+    
+    def get_attachment_url(self, obj):
+        return obj.get_attachment_presigned_url()
