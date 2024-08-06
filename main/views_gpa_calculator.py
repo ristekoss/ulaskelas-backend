@@ -1,4 +1,5 @@
 import logging
+import math
 
 from django.urls import reverse
 import requests
@@ -8,8 +9,8 @@ from rest_framework import status
 from main.views_calculator import score_component
 from .serializers import CalculatorSerializer, ScoreComponentSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer
 
-from .utils import get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params
-from .models import Calculator, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, Course, CourseSemester
+from .utils import get_recommended_score, get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester
+from .models import Calculator, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, Course, CourseSemester, ScoreSubcomponent
 from django.db.models import F
 
 logger = logging.getLogger(__name__)
@@ -150,15 +151,6 @@ def course_semester(request):
 			return response(error="There is no user_gpa with given_semester={}".format(given_semester), status=status.HTTP_404_NOT_FOUND)
 
 		return response(data=SemesterWithCourseSerializer(user_gpa).data)
-
-	if request.method == 'DELETE':
-		given_semester = request.data.get('given_semester')
-
-		if given_semester is None :
-			CourseSemester.objects.filter(semester__userCumulativeGPA__user=user).delete()
-		else :
-			CourseSemester.objects.filter(semester__userCumulativeGPA__user=user, semester__given_semester=given_semester).delete()
-		return response(status=status.HTTP_200_OK)
 	
 	if request.method == 'POST':
 		is_valid = validate_body(request, ['course_ids', 'given_semester'])
@@ -230,18 +222,26 @@ def course_semester_with_course_id(request, course_id):
 	user_cumulative_gpa = check_notexist_and_create_user_cumulative_gpa(user)
 
 	if request.method == 'DELETE':
+		is_valid = validate_body(request, ['given_semester'])
+		if is_valid != None:
+			return is_valid
 		given_semester = request.data.get('given_semester')
 
-		if given_semester != None :
-			semester = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester).first()
-
-			if semester is None:
-				return response(error="No such semester with given_semester={}".format(given_semester), status=status.HTTP_404_NOT_FOUND)
-			
-			CourseSemester.objects.filter(course__pk=course_id, semester=semester).delete()
-			return response(status=status.HTTP_204_NO_CONTENT)
+		semester = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester).first()
+		if semester is None:
+			return response(error="No such semester with given_semester={}".format(given_semester), status=status.HTTP_404_NOT_FOUND)
 		
-		CourseSemester.objects.filter(course__pk=course_id).delete()
+		course_semester = CourseSemester.objects.filter(course__pk=course_id, calculator__user=user, semester__given_semester=given_semester).first()
+		if course_semester is None:
+			return response(error="No matching course semester", status=status.HTTP_404_NOT_FOUND)
+		
+		# Update gpa (ip) and cumulative gpa (ipk)
+		delete_course_to_semester(semester=semester, sks=course_semester.course.sks, score=get_score(course_semester.calculator.total_score))
+		delete_semester_gpa(user_cumulative_gpa=user_cumulative_gpa,
+								total_sks=course_semester.course.sks,
+								semester_gpa=0)
+		
+		course_semester.delete()
 		return response(status=status.HTTP_204_NO_CONTENT)
 	
 @api_view(['GET', 'POST', 'DELETE', 'PUT'])
@@ -253,9 +253,10 @@ def course_component(request):
 		is_valid = validate_params(request, ['calculator_id'])
 
 		if is_valid != None:
-			is_valid
+			return is_valid
 
 		calculator_id = request.query_params.get('calculator_id')
+		target_score = int(request.query_params.get('target_score') or 85)
 		calculator = Calculator.objects.filter(id=calculator_id).first()
 
 		if calculator is None:
@@ -264,7 +265,8 @@ def course_component(request):
 		score_components = ScoreComponent.objects.filter(calculator=calculator)
 		return response(data={
 			'score_component': ScoreComponentSerializer(score_components, many=True).data,
-			'calculator': CalculatorSerializer(calculator).data
+			'calculator': CalculatorSerializer(calculator).data,
+			'recommended_score': get_recommended_score(calculator, target_score)
 		})
 
 	if request.method == 'POST':
@@ -340,3 +342,163 @@ def course_component(request):
 		calculator.save()
 
 		return response(status=status.HTTP_200_OK)
+
+@api_view(['GET', 'POST', 'PUT'])
+def course_subcomponent(request):
+	user = Profile.objects.get(username=str(request.user))
+	user_cumulative_gpa = check_notexist_and_create_user_cumulative_gpa(user)
+
+	if request.method == 'GET':
+		is_valid = validate_params(request, ['score_component_id'])
+
+		if is_valid != None:
+			return is_valid
+		
+		score_component_id = request.query_params.get('score_component_id')
+		target_score = int(request.query_params.get('target_score') or 85)
+		
+		score_component = ScoreComponent.objects.filter(pk=score_component_id).first()
+		if score_component is None:
+			return response(error="Score Component not found", status=status.HTTP_404_NOT_FOUND)
+		calculator = score_component.calculator
+		score_subcomponent_details = ScoreSubcomponent.objects.filter(score_component=score_component).order_by('subcomponent_number')
+		list_score_subcomponent = [score_subcomponent.subcomponent_score for score_subcomponent in score_subcomponent_details]
+		return response(data={
+			'score_component': ScoreComponentSerializer(score_component).data,
+			'list_subcomponent_score': list_score_subcomponent,
+			'recommended_score': get_recommended_score(calculator, target_score)
+		}, status=status.HTTP_200_OK)
+		
+
+	if request.method == 'POST':
+		is_valid = validate_body(request, ['calculator_id', 'name', 'weight', 'frequency', 'scores'])
+
+		if is_valid != None:
+			return is_valid
+		
+		calculator_id = request.data.get('calculator_id')
+		name = request.data.get('name')
+		weight = request.data.get('weight')
+		frequency = request.data.get('frequency')
+		scores = []
+		try:
+			scores = request.data.get('scores', [])
+			if not isinstance(scores, list) or not scores:
+				return response(error="scores should be a non-empty list", status=status.HTTP_400_BAD_REQUEST)
+		except Exception as e:
+				return response(error="scores should be a non-empty list", status=status.HTTP_400_BAD_REQUEST)
+		if frequency != len(scores):
+			return response(error="frequency should equal to the length of scores!", status=status.HTTP_400_BAD_REQUEST)
+
+		calculator = Calculator.objects.filter(pk=calculator_id).first()
+		if calculator is None:
+			return response(error="There is no calculator with id={}".format(calculator_id), status=status.HTTP_404_NOT_FOUND)
+		course_semester = CourseSemester.objects.filter(calculator=calculator).first()
+		if course_semester is None:
+			return response(error="There is no calculator with id={}".format(calculator_id), status=status.HTTP_404_NOT_FOUND)
+		semester = course_semester.semester
+		course = course_semester.course
+
+		prev_sks = course.sks
+		prev_score = get_score(calculator.total_score)
+
+		# Note: We still need to update the score
+		score_component = ScoreComponent.objects.create(calculator=calculator, name=name, weight=weight, score=0) 
+
+		component_total_score = 0
+		for index, score in enumerate(scores):
+			score_subcomponent = ScoreSubcomponent.objects.create(score_component=score_component, 
+																														subcomponent_number=index+1,
+																														subcomponent_score=score)
+			subcomponent_contribution = 0 if score is None else score / frequency 
+			component_total_score += subcomponent_contribution
+
+		# Update score of score component
+		score_component.score = component_total_score
+		score_component.save()
+
+		calculator.total_score += (component_total_score * weight / 100)
+		calculator.total_percentage += weight
+		calculator.save()
+		
+		update_course_score(user_cumulative_gpa=user_cumulative_gpa,
+												semester=semester,
+												prev_sks=prev_sks, prev_score=prev_score,
+												cur_sks=course.sks, cur_score=get_score(calculator.total_score))
+		
+		score_component_value = ScoreComponent.objects.filter(calculator=calculator, name=name, weight=weight, score=component_total_score).first()
+		return response(data=ScoreComponentSerializer(score_component_value).data, status=status.HTTP_201_CREATED)
+	
+	if request.method == 'PUT':
+		is_valid = validate_body(request, ['score_component_id', 'name', 'weight', 'frequency', 'scores'])
+
+		if is_valid != None:
+			return is_valid
+		
+		score_component_id = request.data.get('score_component_id')
+		name = request.data.get('name')
+		weight = request.data.get('weight')
+		frequency = request.data.get('frequency')
+		scores = []
+		try:
+			scores = request.data.get('scores', [])
+			if not isinstance(scores, list) or not scores:
+				return response(error="scores should be a non-empty list", status=status.HTTP_400_BAD_REQUEST)
+		except Exception as e:
+				return response(error="scores should be a non-empty list", status=status.HTTP_400_BAD_REQUEST)
+
+		score_component = ScoreComponent.objects.filter(pk=score_component_id).first()
+		if score_component is None:
+			return response(error="There is no score_component with id={}".format(score_component_id), status=status.HTTP_404_NOT_FOUND)
+		calculator = score_component.calculator
+		course_semester = CourseSemester.objects.filter(calculator=score_component.calculator).first()
+		if course_semester is None:
+			return response(error="No Course Semester", status=status.HTTP_404_NOT_FOUND)
+		semester = course_semester.semester
+		course = course_semester.course
+
+		prev_sks = course.sks
+		prev_score = get_score(calculator.total_score)
+
+		calculator.total_score -= (score_component.score * score_component.weight / 100)
+		calculator.total_percentage -= score_component.weight
+
+		previous_frequency = ScoreSubcomponent.objects.filter(score_component=score_component).count()
+		component_total_score = 0
+
+		for index in range(1, frequency + 1):
+			if index <= previous_frequency: #Update previous subcomponent
+				current_score_subcomponent = ScoreSubcomponent.objects.filter(score_component=score_component, 
+																																	subcomponent_number=index).first()
+				current_score_subcomponent.subcomponent_score = scores[index - 1]
+				current_score_subcomponent.save()
+			else: # Create new subcomponent
+				score_subcomponent = ScoreSubcomponent.objects.create(score_component=score_component, 
+																											subcomponent_number=index,
+																											subcomponent_score=scores[index - 1])
+			subcomponent_contribution = 0 if scores[index - 1] is None else scores[index - 1] / frequency 
+			component_total_score += subcomponent_contribution
+
+		for index in range(frequency + 1, previous_frequency + 1):
+				current_score_subcomponent = ScoreSubcomponent.objects.filter(score_component=score_component, 
+																																	subcomponent_number=index).first()
+				current_score_subcomponent.delete()
+
+		#Update Score Component
+		score_component.name = name
+		score_component.weight = weight
+		score_component.score = component_total_score
+		score_component.save()
+
+		calculator.total_score += (score_component.score * score_component.weight / 100)
+		calculator.total_percentage += score_component.weight
+		calculator.save()
+		
+		update_course_score(user_cumulative_gpa=user_cumulative_gpa,
+												semester=semester,
+												prev_sks=prev_sks, prev_score=prev_score,
+												cur_sks=course.sks, cur_score=get_score(calculator.total_score))
+		
+		score_component_value = ScoreComponent.objects.filter(calculator=calculator, name=name, weight=weight, score=component_total_score).first()
+		print("::", score_component_value)
+		return response(data=ScoreComponentSerializer(score_component_value).data, status=status.HTTP_201_CREATED)

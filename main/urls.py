@@ -1,7 +1,7 @@
 from django import conf
 from rest_framework import routers
 from django.urls import path, include
-from .views_gpa_calculator import course_semester, gpa_calculator, gpa_calculator_with_semester, course_semester_with_course_id, course_component
+from .views_gpa_calculator import course_semester, gpa_calculator, gpa_calculator_with_semester, course_semester_with_course_id, course_component, course_subcomponent
 from .views_calculator import calculator, score_component
 from .views import like, tag, bookmark, account, leaderboard
 from .views_review import ds_review, review
@@ -25,6 +25,7 @@ urlpatterns = [
   path('calculator-gpa/<str:given_semester>', gpa_calculator_with_semester, name="gpa-calculator-with-semester"),
   path('course-semester', course_semester, name='course-semester'),
   path('course-semester/<str:course_id>', course_semester_with_course_id, name="course-with-id"),
-  path('course-component', course_component, name="course-component")
+  path('course-component', course_component, name="course-component"),
+  path('course-subcomponent', course_subcomponent, name="course-subcomponent")
 ] + router.urls
 

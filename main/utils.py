@@ -1,4 +1,5 @@
 from datetime import datetime
+import math
 import os
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
@@ -6,7 +7,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Course, Profile, UserCumulativeGPA, UserGPA
+from .models import Calculator, Course, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, ScoreSubcomponent
+from .fasilkom_courses import IK_COURSES, SI_COURSES
 
 
 def process_sso_profile(sso_profile):
@@ -145,38 +147,19 @@ def update_semester_gpa(user_cumulative_gpa: UserCumulativeGPA,
     delete_semester_gpa(user_cumulative_gpa, old_sks, old_gpa)
     add_semester_gpa(user_cumulative_gpa, new_sks, new_gpa)
 
-def get_course_with_prefix(term, course_code):
-    return Course.objects.filter(term=term, code__startswith=course_code)
-
-MATKUL_WAJIB_UI_CODE = "UIGE"
-MATKUL_WAJIB_FASILKOM_CODE = "CSGE"
-MATKUL_WAJIB_IK_CODE = "CSCM"
-MATKUL_WAJIB_SI_CODE = "CSIM"
-FIRST_TERM_IK_CODE = ["UIGE600004", "UIGE600003", "CSGE601010", "CSGE601012", "CSGE601020", "CSCM601150"]
-FIRST_TERM_SI_CODE = ["UIGE600004", "UIGE600003", "CSGE601010", "CSGE601012", "CSGE601020", "CSIM601191", "CSIM601190"]
+def get_course_by_code(course_code):
+    return Course.objects.filter(code=course_code).first()
 
 def get_fasilkom_courses(study_program):
+    courses_by_program = IK_COURSES if "Ilmu Komputer" in study_program else SI_COURSES
     study_program_courses = [[]]
     for term in range(1,9):
-
-        if term == 1:
-            try:
-                course_term_list = FIRST_TERM_IK_CODE if "Ilmu Komputer" in study_program else FIRST_TERM_SI_CODE
-                term_course = [get_course_with_prefix(term, code)[0] for code in course_term_list]
-                study_program_courses.append(term_course)
-            except Exception as e:
-                study_program_courses.append([])
-                print("Inconsistent course code, try /update-course")
-            continue
-
+        courses_in_term = courses_by_program[term]
         term_course = []
-        term_course.extend(get_course_with_prefix(term, MATKUL_WAJIB_UI_CODE))
-        term_course.extend(get_course_with_prefix(term, MATKUL_WAJIB_FASILKOM_CODE))
-
-        if "Ilmu Komputer" in study_program:
-            term_course.extend(get_course_with_prefix(term, MATKUL_WAJIB_IK_CODE))
-        else :
-            term_course.extend(get_course_with_prefix(term, MATKUL_WAJIB_SI_CODE))
+        for course_code in courses_in_term:
+            course = get_course_by_code(course_code)
+            if course != None:
+                term_course.append(course)
         
         study_program_courses.append(term_course)
     return study_program_courses
@@ -200,3 +183,29 @@ def get_score(score: float) -> float :
         return 3.7  # A-
     
     return 4.0      # A
+
+def get_null_sum_from_component(score_component: ScoreComponent) -> float :
+    frequency = ScoreSubcomponent.objects.filter(score_component=score_component).count()
+    null_sum = 0.0
+    score_subcomponents = ScoreSubcomponent.objects.filter(score_component=score_component)
+    for score_subcomponent in score_subcomponents:
+        null_contribution = 0 if score_subcomponent.subcomponent_score != None else score_component.weight / frequency
+        null_sum += null_contribution
+    return null_sum
+
+def get_null_sum_from_calculator(calculator: Calculator) -> float :
+    null_sum = 0.0
+    score_components = ScoreComponent.objects.filter(calculator=calculator)
+    for score_component in score_components:
+        null_sum += get_null_sum_from_component(score_component)
+    return null_sum
+
+def get_recommended_score(calculator: Calculator, target_score: int) -> float :
+    current_score = calculator.total_score
+    score_left = max(target_score - current_score, 0)
+    percentage_left = get_null_sum_from_calculator(calculator)
+
+    if percentage_left == 0:
+        return 0
+    
+    return score_left / percentage_left * 100

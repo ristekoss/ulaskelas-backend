@@ -155,3 +155,21 @@ class CourseSemester(models.Model):
         constraints = [
             UniqueConstraint(fields=['semester', 'course'], name='unique_semester_course')
         ]
+
+class ScoreSubcomponent(models.Model):
+    """
+    This class describes the subcomponent from a score component
+    Ex: There is a Quiz Component, so the subcomponent might be:
+    - Quiz 1
+    - Quiz 2
+    - Quiz 3
+    - ...etc
+    """
+    score_component = models.ForeignKey(ScoreComponent, on_delete=CASCADE)
+    subcomponent_number = models.PositiveIntegerField()
+    subcomponent_score = models.FloatField(null=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=['score_component', 'subcomponent_number'], name='unique_number')
+        ]
