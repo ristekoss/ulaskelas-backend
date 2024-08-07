@@ -7,7 +7,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Calculator, Course, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, ScoreSubcomponent
+from .models import Calculator, Course, CourseSemester, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, ScoreSubcomponent
 from .fasilkom_courses import IK_COURSES, SI_COURSES
 
 
@@ -215,3 +215,10 @@ def get_max_possible_score(calculator: Calculator) -> float :
     percentage_left = get_null_sum_from_calculator(calculator)
 
     return current_score + percentage_left
+
+def delete_semester(semester: UserGPA):
+    course_semesters = CourseSemester.objects.filter(semester=semester)
+    for course_semester in course_semesters:
+        calculator = course_semester.calculator
+        calculator.delete()
+    semester.delete()
