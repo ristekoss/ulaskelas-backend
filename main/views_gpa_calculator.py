@@ -9,7 +9,7 @@ from rest_framework import status
 from main.views_calculator import score_component
 from .serializers import CalculatorSerializer, ScoreComponentSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer
 
-from .utils import get_recommended_score, get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester
+from .utils import get_recommended_score, get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester, get_max_possible_score
 from .models import Calculator, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, Course, CourseSemester, ScoreSubcomponent
 from django.db.models import F
 
@@ -195,8 +195,6 @@ def course_semester(request):
 
 			valid_course_ids.append(course_id)
 		
-		print(valid_course_ids)
-		
 		for course_id in valid_course_ids:
 			course = Course.objects.filter(pk=course_id).first()
 			
@@ -266,7 +264,8 @@ def course_component(request):
 		return response(data={
 			'score_component': ScoreComponentSerializer(score_components, many=True).data,
 			'calculator': CalculatorSerializer(calculator).data,
-			'recommended_score': get_recommended_score(calculator, target_score)
+			'recommended_score': get_recommended_score(calculator, target_score),
+			'max_possible_score': get_max_possible_score(calculator)
 		})
 
 	if request.method == 'POST':
@@ -500,5 +499,4 @@ def course_subcomponent(request):
 												cur_sks=course.sks, cur_score=get_score(calculator.total_score))
 		
 		score_component_value = ScoreComponent.objects.filter(calculator=calculator, name=name, weight=weight, score=component_total_score).first()
-		print("::", score_component_value)
 		return response(data=ScoreComponentSerializer(score_component_value).data, status=status.HTTP_201_CREATED)

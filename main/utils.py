@@ -209,3 +209,9 @@ def get_recommended_score(calculator: Calculator, target_score: int) -> float :
         return 0
     
     return score_left / percentage_left * 100
+
+def get_max_possible_score(calculator: Calculator) -> float :
+    current_score = calculator.total_score
+    percentage_left = get_null_sum_from_calculator(calculator)
+
+    return current_score + percentage_left
