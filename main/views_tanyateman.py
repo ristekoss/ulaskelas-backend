@@ -54,9 +54,7 @@ def tanya_teman(request):
       if not folder_prefix:
         return response(error="Folder prefix not found.", status=status.HTTP_400_BAD_REQUEST)
 
-      print("test")
       key = f"{folder_prefix}/{uuid.uuid4()}_{timestamp}.{extension}"
-      print(key)
       try:
         s3.upload_fileobj(attachment_file, bucket_name, key)
         question = Question.objects.create(user=user, question_text=question_text, course=course, is_anonym=is_anonym, attachment=key)
