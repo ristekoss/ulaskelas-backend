@@ -9,7 +9,7 @@ from rest_framework import status
 from main.views_calculator import score_component
 from .serializers import CalculatorSerializer, ScoreComponentSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer
 
-from .utils import get_recommended_score, get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester
+from .utils import get_recommended_score, get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester, get_max_possible_score, delete_semester
 from .models import Calculator, Profile, ScoreComponent, UserCumulativeGPA, UserGPA, Course, CourseSemester, ScoreSubcomponent
 from django.db.models import F
 
@@ -37,7 +37,10 @@ def gpa_calculator(request):
 										})
 	
 	if request.method == 'DELETE':
-		UserGPA.objects.filter(userCumulativeGPA__user=user).delete()
+		user_gpas = UserGPA.objects.filter(userCumulativeGPA__user=user)
+		for user_gpa in user_gpas:
+			delete_semester(user_gpa)
+
 		user_cumulative_gpa.total_gpa = 0
 		user_cumulative_gpa.total_sks = 0
 		update_cumulative_gpa(user_cumulative_gpa)
@@ -130,7 +133,7 @@ def gpa_calculator_with_semester(request, given_semester):
 			return response(error="There is no object with given_semester={}".format(given_semester), status=status.HTTP_404_NOT_FOUND)
 		
 		delete_semester_gpa(user_cumulative_gpa, total_sks=user_gpa.total_sks,semester_gpa=user_gpa.semester_gpa)
-		user_gpa.delete()
+		delete_semester(user_gpa)
 
 		return response(status=status.HTTP_204_NO_CONTENT)
 
@@ -195,8 +198,6 @@ def course_semester(request):
 
 			valid_course_ids.append(course_id)
 		
-		print(valid_course_ids)
-		
 		for course_id in valid_course_ids:
 			course = Course.objects.filter(pk=course_id).first()
 			
@@ -239,7 +240,7 @@ def course_semester_with_course_id(request, course_id):
 		delete_course_to_semester(semester=semester, sks=course_semester.course.sks, score=get_score(course_semester.calculator.total_score))
 		delete_semester_gpa(user_cumulative_gpa=user_cumulative_gpa,
 								total_sks=course_semester.course.sks,
-								semester_gpa=0)
+								semester_gpa=get_score(course_semester.calculator.total_score))
 		
 		course_semester.delete()
 		return response(status=status.HTTP_204_NO_CONTENT)
@@ -266,7 +267,8 @@ def course_component(request):
 		return response(data={
 			'score_component': ScoreComponentSerializer(score_components, many=True).data,
 			'calculator': CalculatorSerializer(calculator).data,
-			'recommended_score': get_recommended_score(calculator, target_score)
+			'recommended_score': get_recommended_score(calculator, target_score),
+			'max_possible_score': get_max_possible_score(calculator)
 		})
 
 	if request.method == 'POST':
@@ -341,7 +343,7 @@ def course_component(request):
 		score_component.delete()
 		calculator.save()
 
-		return response(status=status.HTTP_200_OK)
+		return response(status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['GET', 'POST', 'PUT'])
 def course_subcomponent(request):
@@ -500,5 +502,4 @@ def course_subcomponent(request):
 												cur_sks=course.sks, cur_score=get_score(calculator.total_score))
 		
 		score_component_value = ScoreComponent.objects.filter(calculator=calculator, name=name, weight=weight, score=component_total_score).first()
-		print("::", score_component_value)
 		return response(data=ScoreComponentSerializer(score_component_value).data, status=status.HTTP_201_CREATED)

@@ -1,9 +1,15 @@
+import mimetypes
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.deletion import CASCADE
 from django.db.models import UniqueConstraint
+import boto3
+import environ
 
 from django.utils import timezone
+
+env = environ.Env()
+expires_in = 60*60*7 # 7 Hours
 
 class Tag(models.Model):
     """
@@ -173,3 +179,49 @@ class ScoreSubcomponent(models.Model):
         constraints = [
             UniqueConstraint(fields=['score_component', 'subcomponent_number'], name='unique_number')
         ]
+
+class Question(models.Model):
+    """
+    This class represent the Question model for "TanyaTeman" Feature
+    is_anonym = 1 if the user wants to be anonym in the question, otherwise is_anonym = 0
+    """
+
+    class VerificationStatus(models.TextChoices):
+        WAITING = "Menunggu Verifikasi"
+        APPROVED = "Terverifikasi"
+
+    user = models.ForeignKey(Profile, on_delete=CASCADE)
+    question_text = models.TextField()
+    course = models.ForeignKey(Course, on_delete=CASCADE)
+    is_anonym = models.IntegerField()
+    attachment = models.CharField(max_length=120)
+    like_count = models.IntegerField(default=0)
+    verification_status = models.TextField(choices=VerificationStatus.choices, default=VerificationStatus.WAITING)
+    created_at = models.DateTimeField(default=timezone.now())
+    updated_at = models.DateTimeField(default=timezone.now())
+
+    def save(self, *args, **kwargs):
+        self.updated_at = timezone.now()
+        return super(Question, self).save(*args, **kwargs)
+
+    def get_attachment_presigned_url(self, expires_in=expires_in):
+        s3 = boto3.client(
+            's3', 
+            aws_access_key_id=env("ACCESS_KEY_ID"), 
+            aws_secret_access_key=env("ACCESS_KEY_SECRET"), 
+            region_name=env("AWS_REGION")
+        )
+
+        attachment_type = self.attachment.split('.')[-1]
+
+        url = s3.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': env("BUCKET_NAME"),
+                'Key': self.attachment,
+                'ResponseContentDisposition': 'inline',
+                'ResponseContentType': attachment_type
+            },
+            ExpiresIn=expires_in
+        )
+        return url
