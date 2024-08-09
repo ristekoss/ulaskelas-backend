@@ -371,7 +371,7 @@ class QuestionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Question
-        fields = ['id', 'user', 'question_text', 'course', 'is_anonym', 'attachment_url', 'like_count', 'verification_status']
+        fields = ['id', 'user', 'question_text', 'course', 'is_anonym', 'attachment_url', 'like_count', 'verification_status', 'created_at', 'updated_at']
     
     def get_user(self, obj):
         return obj.user.username

@@ -197,6 +197,12 @@ class Question(models.Model):
     attachment = models.CharField(max_length=120)
     like_count = models.IntegerField(default=0)
     verification_status = models.TextField(choices=VerificationStatus.choices, default=VerificationStatus.WAITING)
+    created_at = models.DateTimeField(default=timezone.now())
+    updated_at = models.DateTimeField(default=timezone.now())
+
+    def save(self, *args, **kwargs):
+        self.updated_at = timezone.now()
+        return super(Question, self).save(*args, **kwargs)
 
     def get_attachment_presigned_url(self, expires_in=expires_in):
         s3 = boto3.client(
