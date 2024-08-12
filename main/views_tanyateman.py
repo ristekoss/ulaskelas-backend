@@ -11,7 +11,7 @@ from rest_framework import status
 from main.views_calculator import score_component
 from .serializers import AddQuestionSerializer, CalculatorSerializer, QuestionSerializer, ScoreComponentSerializer, TanyaTemanProfileSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer
 
-from .utils import get_recommended_score, get_score, response, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester
+from .utils import get_recommended_score, get_score, response, response_paged, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester, get_paged_questions
 from .models import Calculator, Course, Profile, Question
 from django.db.models import F
 import boto3
@@ -65,12 +65,18 @@ def tanya_teman(request):
       return response(error=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
   if request.method == 'GET':
-    id = request.query_params.get("id")
+    id = request.query_params.get('id')
     if id != None:
       return tanya_teman_with_id(request, id)
 
-    questions = Question.objects.all()
-    return response(data=QuestionSerializer(questions, many=True).data, status=status.HTTP_200_OK)
+    # Note: Need to change filter to be Question.VerificationStatus.APPROVED 
+    #       after implementing the flow to verify the status
+    questions = Question.objects.filter(verification_status=Question.VerificationStatus.WAITING).order_by('created_at')
+    page = request.query_params.get('page')
+    if page is None:
+      return response(error='page is required', status=status.HTTP_400_BAD_REQUEST)
+    questions, total_page = get_paged_questions(questions, page)
+    return response_paged(data={'questions': QuestionSerializer(questions, many=True).data}, total_page=total_page)
   
 def tanya_teman_with_id(request, id):
   user = Profile.objects.get(username=str(request.user))
