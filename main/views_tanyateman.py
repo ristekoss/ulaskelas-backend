@@ -111,8 +111,8 @@ def filtered_question(request):
   is_history = request.query_params.get('is_history') != None
   user = Profile.objects.get(username=str(request.user))
 
-  # Note: Need to change filter to be Question.VerificationStatus.WAITING  (line 120)
-  #       after implementing the flow to verify the status
+  # Note: The filter should be changed to Question.VerificationStatus.APPROVED (previously WAITING, see line 120)
+  #       after implementing the verification flow
   questions = Question.objects.all()
   if is_history:
       questions = questions.filter(user=user)
