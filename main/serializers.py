@@ -378,3 +378,18 @@ class QuestionSerializer(serializers.ModelSerializer):
     
     def get_attachment_url(self, obj):
         return obj.get_attachment_presigned_url()
+    
+class HideVerificationQuestionSerializer(serializers.ModelSerializer):
+    user = TanyaTemanProfileSerializer()
+    course = CourseForSemesterSerializer()
+    attachment_url = serializers.SerializerMethodField('get_attachment_url')
+
+    class Meta:
+        model = Question
+        fields = ['id', 'user', 'question_text', 'course', 'is_anonym', 'attachment_url', 'like_count', 'created_at', 'updated_at']
+    
+    def get_user(self, obj):
+        return obj.user.username
+    
+    def get_attachment_url(self, obj):
+        return obj.get_attachment_presigned_url()

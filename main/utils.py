@@ -222,3 +222,8 @@ def delete_semester(semester: UserGPA):
         calculator = course_semester.calculator
         calculator.delete()
     semester.delete()
+
+def get_paged_questions(questions, page):
+    paginator = Paginator(questions, 10)
+    questions = paginator.get_page(page)
+    return questions, paginator.num_pages
