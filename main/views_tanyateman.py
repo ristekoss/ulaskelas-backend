@@ -111,13 +111,13 @@ def filtered_question(request):
   is_history = request.query_params.get('is_history') != None
   user = Profile.objects.get(username=str(request.user))
 
-  # Note: Need to change filter to be Question.VerificationStatus.APPROVED  (line 244)
+  # Note: Need to change filter to be Question.VerificationStatus.WAITING  (line 120)
   #       after implementing the flow to verify the status
   questions = Question.objects.all()
   if is_history:
       questions = questions.filter(user=user)
   else :
-      questions = questions.filter(verification_status=Question.VerificationStatus.APPROVED)
+      questions = questions.filter(verification_status=Question.VerificationStatus.WAITING)
   
   if is_paling_banyak_disukai:
       return questions.order_by('like_count')
