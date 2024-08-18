@@ -194,34 +194,53 @@ class Question(models.Model):
     question_text = models.TextField()
     course = models.ForeignKey(Course, on_delete=CASCADE)
     is_anonym = models.IntegerField()
-    attachment = models.CharField(max_length=120)
+    attachment = models.CharField(null=True, max_length=120)
+    like_count = models.IntegerField(default=0)
+    reply_count = models.IntegerField(default=0)
+    verification_status = models.TextField(choices=VerificationStatus.choices, default=VerificationStatus.WAITING)
+    created_at = models.DateTimeField(default=timezone.now)
+    
+class Answer(models.Model):
+    """
+    This class represent the Answer/Reply for the Question
+    is_anonym = 1 if the user wants to be anonym in the question, otherwise is_anonym = 0
+    """
+
+    class VerificationStatus(models.TextChoices):
+        WAITING = "Menunggu Verifikasi"
+        APPROVED = "Terverifikasi"
+
+    user = models.ForeignKey(Profile, on_delete=CASCADE)
+    question = models.ForeignKey(Question, on_delete=CASCADE)
+    answer_text = models.TextField()
+    is_anonym = models.IntegerField()
+    attachment = models.CharField(null=True, max_length=120)
     like_count = models.IntegerField(default=0)
     verification_status = models.TextField(choices=VerificationStatus.choices, default=VerificationStatus.WAITING)
-    created_at = models.DateTimeField(default=timezone.now())
-    updated_at = models.DateTimeField(default=timezone.now())
+    created_at = models.DateTimeField(default=timezone.now)
 
-    def save(self, *args, **kwargs):
-        self.updated_at = timezone.now()
-        return super(Question, self).save(*args, **kwargs)
 
-    def get_attachment_presigned_url(self, expires_in=expires_in):
-        s3 = boto3.client(
-            's3', 
-            aws_access_key_id=env("ACCESS_KEY_ID"), 
-            aws_secret_access_key=env("ACCESS_KEY_SECRET"), 
-            region_name=env("AWS_REGION")
-        )
+def get_attachment_presigned_url(attachment, expires_in=expires_in):
+    if attachment is None:
+        return attachment
 
-        attachment_type = self.attachment.split('.')[-1]
+    s3 = boto3.client(
+        's3', 
+        aws_access_key_id=env("ACCESS_KEY_ID"), 
+        aws_secret_access_key=env("ACCESS_KEY_SECRET"), 
+        region_name=env("AWS_REGION")
+    )
 
-        url = s3.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': env("BUCKET_NAME"),
-                'Key': self.attachment,
-                'ResponseContentDisposition': 'inline',
-                'ResponseContentType': attachment_type
-            },
-            ExpiresIn=expires_in
-        )
-        return url
+    attachment_type = attachment.split('.')[-1]
+
+    url = s3.generate_presigned_url(
+        'get_object',
+        Params={
+            'Bucket': env("BUCKET_NAME"),
+            'Key': attachment,
+            'ResponseContentDisposition': 'inline',
+            'ResponseContentType': attachment_type
+        },
+        ExpiresIn=expires_in
+    )
+    return url
