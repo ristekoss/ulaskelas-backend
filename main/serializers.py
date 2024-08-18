@@ -3,7 +3,7 @@ from main.utils import get_profile_term
 from rest_framework import serializers
 from django.db.models import Avg
 
-from .models import Calculator, Course, Profile, Question, Review, ScoreComponent, Tag, Bookmark, UserCumulativeGPA, UserGPA, CourseSemester, ScoreSubcomponent
+from .models import Answer, Calculator, Course, Profile, Question, Review, ScoreComponent, Tag, Bookmark, UserCumulativeGPA, UserGPA, CourseSemester, ScoreSubcomponent, get_attachment_presigned_url
 
 # class CurriculumSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -338,9 +338,15 @@ class SemesterWithCourseSerializer(serializers.ModelSerializer):
         return UserGPASerializer(obj).data
     
 class AddQuestionSerializer(serializers.Serializer):
-    attachment_file = serializers.FileField()
+    attachment_file = serializers.FileField(required=False, allow_null=True)
     course_id = serializers.IntegerField()
     question_text = serializers.CharField()
+    is_anonym = serializers.IntegerField()
+
+class AnswerQuestionSerializer(serializers.Serializer):
+    attachment_file = serializers.FileField(required=False, allow_null=True)
+    question_id = serializers.IntegerField()
+    answer_text = serializers.CharField()
     is_anonym = serializers.IntegerField()
 
 class TanyaTemanProfileSerializer(serializers.ModelSerializer):
@@ -371,13 +377,13 @@ class QuestionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Question
-        fields = ['id', 'user', 'question_text', 'course', 'is_anonym', 'attachment_url', 'like_count', 'verification_status', 'created_at', 'updated_at']
+        fields = ['id', 'user', 'question_text', 'course', 'is_anonym', 'attachment_url', 'like_count', 'reply_count', 'verification_status', 'created_at']
     
     def get_user(self, obj):
         return obj.user.username
     
     def get_attachment_url(self, obj):
-        return obj.get_attachment_presigned_url()
+        return get_attachment_presigned_url(attachment=obj.attachment)
     
 class HideVerificationQuestionSerializer(serializers.ModelSerializer):
     user = TanyaTemanProfileSerializer()
@@ -386,10 +392,25 @@ class HideVerificationQuestionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Question
-        fields = ['id', 'user', 'question_text', 'course', 'is_anonym', 'attachment_url', 'like_count', 'created_at', 'updated_at']
+        fields = ['id', 'user', 'question_text', 'course', 'is_anonym', 'attachment_url', 'like_count', 'reply_count', 'created_at']
     
     def get_user(self, obj):
         return obj.user.username
     
     def get_attachment_url(self, obj):
-        return obj.get_attachment_presigned_url()
+        return get_attachment_presigned_url(attachment=obj.attachment)
+
+class AnswerSerializer(serializers.ModelSerializer):
+    user = TanyaTemanProfileSerializer()
+    question_id = serializers.SerializerMethodField('get_question_id')
+    attachment_url = serializers.SerializerMethodField('get_attachment_url')
+
+    class Meta:
+        model = Answer
+        fields = ['id', 'user', 'answer_text', 'question_id', 'is_anonym', 'attachment_url', 'like_count', 'created_at']
+    
+    def get_question_id(self, obj):
+        return obj.question.pk
+    
+    def get_attachment_url(self, obj):
+        return get_attachment_presigned_url(attachment=obj.attachment)
