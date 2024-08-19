@@ -28,7 +28,7 @@ def tanya_teman(request):
     if not serializer.is_valid():
       return response(error=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    attachment_file = serializer.validated_data['attachment_file']
+    attachment_file = serializer.validated_data.get('attachment_file', None)
     question_text = serializer.validated_data['question_text']
     course_id = serializer.validated_data['course_id']
     is_anonym = serializer.validated_data['is_anonym']
@@ -81,7 +81,7 @@ def jawab_teman(request):
     if not serializer.is_valid():
       return response(error=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    attachment_file = serializer.validated_data['attachment_file']
+    attachment_file = serializer.validated_data.get('attachment_file', None)
     answer_text = serializer.validated_data['answer_text']
     question_id = serializer.validated_data['question_id']
     is_anonym = serializer.validated_data['is_anonym']
@@ -106,6 +106,9 @@ def jawab_teman(request):
       is_anonym=is_anonym, 
       attachment=key
     )
+    question.reply_count += 1
+    question.save()
+
     return response(data={"message": "Image uploaded successfully", "key": key}, status=status.HTTP_200_OK)
   
   if request.method == 'GET':
