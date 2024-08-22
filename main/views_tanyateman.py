@@ -72,7 +72,7 @@ def tanya_teman(request):
       return response(error="id should be a number", status=status.HTTP_400_BAD_REQUEST)
     return tanya_teman_with_id(request, id)
 
-@api_view(['GET', 'PUT', 'POST','DELETE'])
+@api_view(['GET', 'POST'])
 def jawab_teman(request):
   user = Profile.objects.get(username=str(request.user))
 
@@ -124,7 +124,7 @@ def jawab_teman(request):
     all_replies = Answer.objects.filter(
                     Q(question=question),
                     Q(verification_status=Answer.VerificationStatus.APPROVED) | Q(user=user))
-    return response(data=AnswerSerializer(all_replies, many=True).data, status=status.HTTP_200_OK)
+    return jawab_teman_paged(request, all_replies)
 
 def tanya_teman_with_id(request, id):
   user = Profile.objects.get(username=str(request.user))
@@ -154,6 +154,16 @@ def tanya_teman_paged(request, questions, is_history):
     'questions': QuestionSerializer(questions, many=True).data 
                   if is_history else 
                     HideVerificationQuestionSerializer(questions, many=True).data
+  }, total_page=total_page)
+
+def jawab_teman_paged(request, answers):
+  page = request.query_params.get('page')
+  if page is None:
+    return response(error='page is required', status=status.HTTP_400_BAD_REQUEST)
+  
+  answers, total_page = get_paged_questions(answers, page)
+  return response_paged(data={
+    'answers': AnswerSerializer(answers, many=True).data
   }, total_page=total_page)
 
 
