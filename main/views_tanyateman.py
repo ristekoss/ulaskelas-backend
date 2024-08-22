@@ -72,7 +72,7 @@ def tanya_teman(request):
       return response(error="id should be a number", status=status.HTTP_400_BAD_REQUEST)
     return tanya_teman_with_id(request, id)
 
-@api_view(['GET', 'PUT', 'POST','DELETE'])
+@api_view(['GET', 'POST'])
 def jawab_teman(request):
   user = Profile.objects.get(username=str(request.user))
 
@@ -124,7 +124,7 @@ def jawab_teman(request):
     all_replies = Answer.objects.filter(
                     Q(question=question),
                     Q(verification_status=Answer.VerificationStatus.APPROVED) | Q(user=user))
-    return response(data=AnswerSerializer(all_replies, many=True).data, status=status.HTTP_200_OK)
+    return jawab_teman_paged(request, all_replies)
 
 def tanya_teman_with_id(request, id):
   user = Profile.objects.get(username=str(request.user))
@@ -156,28 +156,45 @@ def tanya_teman_paged(request, questions, is_history):
                     HideVerificationQuestionSerializer(questions, many=True).data
   }, total_page=total_page)
 
+def jawab_teman_paged(request, answers):
+  page = request.query_params.get('page')
+  if page is None:
+    return response(error='page is required', status=status.HTTP_400_BAD_REQUEST)
+  
+  answers, total_page = get_paged_questions(answers, page)
+  return response_paged(data={
+    'answers': AnswerSerializer(answers, many=True).data
+  }, total_page=total_page)
+
 
 def filtered_question(request):
   is_paling_banyak_disukai = request.query_params.get('paling_banyak_disukai') != None
   is_terverifikasi = request.query_params.get('terverifikasi') != None
   is_menunggu_verifikasi = request.query_params.get('menunggu_verifikasi') != None
   is_history = request.query_params.get('is_history') != None
+  course_id = request.query_params.get('course_id')
+  keyword = request.query_params.get('keyword')
   user = Profile.objects.get(username=str(request.user))
 
   # Note: The filter should be changed to Question.VerificationStatus.APPROVED (previously WAITING, see line 120)
   #       after implementing the verification flow
   questions = Question.objects.all()
   if is_history:
-      questions = questions.filter(user=user)
+    questions = questions.filter(user=user)
   else :
-      questions = questions.filter(verification_status=Question.VerificationStatus.WAITING)
-  
+    questions = questions.filter(verification_status=Question.VerificationStatus.WAITING)
+
+  if course_id != None:
+    questions = questions.filter(course__pk=course_id)
+  if keyword != None:
+    questions = questions.filter(Q(question_text__icontains=keyword))
+
   if is_paling_banyak_disukai:
-      return questions.order_by('like_count')
+    return questions.order_by('like_count')
   if is_terverifikasi:
-      return questions.filter(verification_status=Question.VerificationStatus.APPROVED).order_by('created_at')
+    return questions.filter(verification_status=Question.VerificationStatus.APPROVED).order_by('created_at')
   if is_menunggu_verifikasi:
-      return questions.filter(verification_status=Question.VerificationStatus.WAITING).order_by('created_at')
+    return questions.filter(verification_status=Question.VerificationStatus.WAITING).order_by('created_at')
   return questions.order_by('created_at')
 
 '''
