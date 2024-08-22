@@ -162,22 +162,29 @@ def filtered_question(request):
   is_terverifikasi = request.query_params.get('terverifikasi') != None
   is_menunggu_verifikasi = request.query_params.get('menunggu_verifikasi') != None
   is_history = request.query_params.get('is_history') != None
+  course_id = request.query_params.get('course_id')
+  keyword = request.query_params.get('keyword')
   user = Profile.objects.get(username=str(request.user))
 
   # Note: The filter should be changed to Question.VerificationStatus.APPROVED (previously WAITING, see line 120)
   #       after implementing the verification flow
   questions = Question.objects.all()
   if is_history:
-      questions = questions.filter(user=user)
+    questions = questions.filter(user=user)
   else :
-      questions = questions.filter(verification_status=Question.VerificationStatus.WAITING)
-  
+    questions = questions.filter(verification_status=Question.VerificationStatus.WAITING)
+
+  if course_id != None:
+    questions = questions.filter(course__pk=course_id)
+  if keyword != None:
+    questions = questions.filter(Q(question_text__icontains=keyword))
+
   if is_paling_banyak_disukai:
-      return questions.order_by('like_count')
+    return questions.order_by('like_count')
   if is_terverifikasi:
-      return questions.filter(verification_status=Question.VerificationStatus.APPROVED).order_by('created_at')
+    return questions.filter(verification_status=Question.VerificationStatus.APPROVED).order_by('created_at')
   if is_menunggu_verifikasi:
-      return questions.filter(verification_status=Question.VerificationStatus.WAITING).order_by('created_at')
+    return questions.filter(verification_status=Question.VerificationStatus.WAITING).order_by('created_at')
   return questions.order_by('created_at')
 
 '''
