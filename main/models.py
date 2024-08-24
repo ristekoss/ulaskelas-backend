@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.deletion import CASCADE
 from django.db.models import UniqueConstraint
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
 import boto3
 import environ
 
@@ -244,3 +246,18 @@ def get_attachment_presigned_url(attachment, expires_in=expires_in):
         ExpiresIn=expires_in
     )
     return url
+
+class LikePost(models.Model):
+    """
+    This class That a user like a Post (Could be Question/Answer)
+    """
+    user = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    class Meta:
+        unique_together = ('user', 'content_type', 'object_id')
+
+    def __str__(self):
+        return f'{self.user.username} liked {self.content_object}: {self.content_type} {self.object_id}'

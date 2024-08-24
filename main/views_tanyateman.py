@@ -11,7 +11,8 @@ from rest_framework import status
 from main.views_calculator import score_component
 from .serializers import AddQuestionSerializer, CalculatorSerializer, QuestionSerializer, ScoreComponentSerializer, TanyaTemanProfileSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer, HideVerificationQuestionSerializer, AnswerQuestionSerializer, AnswerSerializer
 from .utils import get_recommended_score, get_score, response, response_paged, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester, get_paged_questions
-from .models import Calculator, Course, Profile, Question, Answer
+from .models import Calculator, Course, LikePost, Profile, Question, Answer
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 import boto3
 import environ
@@ -71,8 +72,41 @@ def tanya_teman(request):
     if not id.isnumeric():
       return response(error="id should be a number", status=status.HTTP_400_BAD_REQUEST)
     return tanya_teman_with_id(request, id)
+  
+  if request.method == 'PUT':
+    is_like = request.query_params.get("is_like")
+    if is_like is None:
+      return response(error="The only allowed PUT request for /tanya-teman is to like/unlike a Question.", status=status.HTTP_400_BAD_REQUEST)
+    
+    id = request.query_params.get('id')
+    if id is None:
+      return response(error="id is required", status=status.HTTP_400_BAD_REQUEST)
+    if not id.isnumeric():
+      return response(error="id should be a number", status=status.HTTP_400_BAD_REQUEST)
+    
+    question = Question.objects.filter(pk=id).first()
+    if question is None:
+      return response(error="No matching question", status=status.HTTP_404_NOT_FOUND)
+    
+    content_type = ContentType.objects.get_for_model(Question)
+    question_like = LikePost.objects.filter(content_type=content_type, object_id=id, user=user).first()
+    if question_like is None:
+      LikePost.objects.create(
+          user=user,
+          content_type=content_type,
+          object_id=id
+      )
+      question.like_count += 1
+      question.save()
+    else:
+      question_like.delete()
+      question.like_count -= 1
+      question.save()
 
-@api_view(['GET', 'POST'])
+    return response(status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST', 'PUT'])
 def jawab_teman(request):
   user = Profile.objects.get(username=str(request.user))
 
@@ -125,6 +159,39 @@ def jawab_teman(request):
                     Q(question=question),
                     Q(verification_status=Answer.VerificationStatus.APPROVED) | Q(user=user))
     return jawab_teman_paged(request, all_replies)
+  
+  if request.method == 'PUT':
+    is_like = request.query_params.get("is_like")
+    if is_like is None:
+      return response(error="The only allowed PUT request for /jawab-teman is to like/unlike an Answer.", status=status.HTTP_400_BAD_REQUEST)
+    
+    id = request.query_params.get('id')
+    if id is None:
+      return response(error="id is required", status=status.HTTP_400_BAD_REQUEST)
+    if not id.isnumeric():
+      return response(error="id should be a number", status=status.HTTP_400_BAD_REQUEST)
+    
+    answer = Answer.objects.filter(pk=id).first()
+    if answer is None:
+      return response(error="No matching answer", status=status.HTTP_404_NOT_FOUND)
+    
+    content_type = ContentType.objects.get_for_model(Answer)
+    answer_like = LikePost.objects.filter(content_type=content_type, object_id=id, user=user).first()
+    if answer_like is None:
+      LikePost.objects.create(
+          user=user,
+          content_type=content_type,
+          object_id=id
+      )
+      answer.like_count += 1
+      answer.save()
+    else:
+      answer_like.delete()
+      answer.like_count -= 1
+      answer.save()
+
+    return response(status=status.HTTP_200_OK)
+
 
 def tanya_teman_with_id(request, id):
   user = Profile.objects.get(username=str(request.user))
@@ -146,24 +213,39 @@ def tanya_teman_with_id(request, id):
   
 def tanya_teman_paged(request, questions, is_history):
   page = request.query_params.get('page')
+  user = Profile.objects.get(username=str(request.user))
   if page is None:
     return response(error='page is required', status=status.HTTP_400_BAD_REQUEST)
   
   questions, total_page = get_paged_questions(questions, page)
+
+  list_questions = None
+  if is_history: 
+    list_questions = QuestionSerializer(questions, many=True).data
+  else:
+    list_questions = HideVerificationQuestionSerializer(questions, many=True).data
+  list_questions = add_is_liked(user, list_questions, is_question=True)
+
   return response_paged(data={
-    'questions': QuestionSerializer(questions, many=True).data 
-                  if is_history else 
-                    HideVerificationQuestionSerializer(questions, many=True).data
+    'questions': list_questions
   }, total_page=total_page)
 
 def jawab_teman_paged(request, answers):
   page = request.query_params.get('page')
+  user = Profile.objects.get(username=str(request.user))
+  question = answers[0].question if len(answers) > 0 else None
+  like_count = question.like_count if question != None else 0
+  reply_count = question.reply_count if question != None else 0
   if page is None:
     return response(error='page is required', status=status.HTTP_400_BAD_REQUEST)
   
   answers, total_page = get_paged_questions(answers, page)
+  list_answers = AnswerSerializer(answers, many=True).data
+  list_answers = add_is_liked(user, list_answers, is_question=False)
   return response_paged(data={
-    'answers': AnswerSerializer(answers, many=True).data
+    'answers': list_answers,
+    'like_count': like_count,
+    'reply_count': reply_count
   }, total_page=total_page)
 
 
@@ -190,12 +272,12 @@ def filtered_question(request):
     questions = questions.filter(Q(question_text__icontains=keyword))
 
   if is_paling_banyak_disukai:
-    return questions.order_by('like_count')
+    return questions.order_by('-like_count')
   if is_terverifikasi:
-    return questions.filter(verification_status=Question.VerificationStatus.APPROVED).order_by('created_at')
+    return questions.filter(verification_status=Question.VerificationStatus.APPROVED).order_by('-created_at')
   if is_menunggu_verifikasi:
-    return questions.filter(verification_status=Question.VerificationStatus.WAITING).order_by('created_at')
-  return questions.order_by('created_at')
+    return questions.filter(verification_status=Question.VerificationStatus.WAITING).order_by('-created_at')
+  return questions.order_by('-created_at')
 
 '''
 upload_attachment returns ('error', response) if the attachment file is not valid
@@ -233,3 +315,15 @@ def upload_attachment(attachment_file):
       return "success", key
     except Exception as e:
       return "error", response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
+    
+def add_is_liked(user, posts, is_question):
+  list_posts = []
+  if is_question:
+    content_type = ContentType.objects.get_for_model(Question)
+  else:
+    content_type = ContentType.objects.get_for_model(Answer)
+  for post in posts:
+    post_like = LikePost.objects.filter(content_type=content_type, object_id=post['id'], user=user).first()
+    post['liked_by_user'] = 1 if post_like != None else 0
+    list_posts.append(post)
+  return list_posts
