@@ -245,7 +245,7 @@ def jawab_teman_paged(request, answers):
   return response_paged(data={
     'answers': list_answers,
     'like_count': like_count,
-    'reply_count': reply_count
+    'reply_count': len(answers)
   }, total_page=total_page)
 
 
@@ -258,13 +258,11 @@ def filtered_question(request):
   keyword = request.query_params.get('keyword')
   user = Profile.objects.get(username=str(request.user))
 
-  # Note: The filter should be changed to Question.VerificationStatus.APPROVED (previously WAITING, see line 120)
-  #       after implementing the verification flow
   questions = Question.objects.all()
   if is_history:
     questions = questions.filter(user=user)
   else :
-    questions = questions.filter(verification_status=Question.VerificationStatus.WAITING)
+    questions = questions.filter(verification_status=Question.VerificationStatus.APPROVED)
 
   if course_id != None:
     questions = questions.filter(course__pk=course_id)
@@ -325,5 +323,13 @@ def add_is_liked(user, posts, is_question):
   for post in posts:
     post_like = LikePost.objects.filter(content_type=content_type, object_id=post['id'], user=user).first()
     post['liked_by_user'] = 1 if post_like != None else 0
+    
+    if is_question:
+      post['reply_count'] = get_reply_count(user, post['id'])
     list_posts.append(post)
   return list_posts
+
+def get_reply_count(user, question_id):
+  return Answer.objects.filter(
+                    Q(question__pk=question_id),
+                    Q(verification_status=Answer.VerificationStatus.APPROVED) | Q(user=user)).count()

@@ -9,6 +9,8 @@ import boto3
 import environ
 
 from django.utils import timezone
+from django.utils.html import format_html
+from django.contrib import admin
 
 env = environ.Env()
 expires_in = 60*60*7 # 7 Hours
@@ -196,7 +198,7 @@ class Question(models.Model):
     question_text = models.TextField()
     course = models.ForeignKey(Course, on_delete=CASCADE)
     is_anonym = models.IntegerField()
-    attachment = models.CharField(null=True, max_length=120)
+    attachment = models.CharField(null=True, max_length=120, blank=True)
     like_count = models.IntegerField(default=0)
     reply_count = models.IntegerField(default=0)
     verification_status = models.TextField(choices=VerificationStatus.choices, default=VerificationStatus.WAITING)
@@ -216,7 +218,7 @@ class Answer(models.Model):
     question = models.ForeignKey(Question, on_delete=CASCADE)
     answer_text = models.TextField()
     is_anonym = models.IntegerField()
-    attachment = models.CharField(null=True, max_length=120)
+    attachment = models.CharField(null=True, max_length=120, blank=True)
     like_count = models.IntegerField(default=0)
     verification_status = models.TextField(choices=VerificationStatus.choices, default=VerificationStatus.WAITING)
     created_at = models.DateTimeField(default=timezone.now)
@@ -261,3 +263,15 @@ class LikePost(models.Model):
 
     def __str__(self):
         return f'{self.user.username} liked {self.content_object}: {self.content_type} {self.object_id}'
+
+class QuestionImageAdmin(admin.ModelAdmin):
+    def image_tag(self, obj):
+        return format_html('<img src="{}" style="max-width:200px; max-height:200px"/>'.format(get_attachment_presigned_url(obj.attachment)))
+
+    list_display = ['question_text','image_tag',]
+
+class AnswerImageAdmin(admin.ModelAdmin):
+    def image_tag(self, obj):
+        return format_html('<img src="{}" style="max-width:200px; max-height:200px"/>'.format(get_attachment_presigned_url(obj.attachment)))
+
+    list_display = ['answer_text','image_tag',]
