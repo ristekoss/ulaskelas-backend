@@ -16,6 +16,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 import boto3
 import environ
+from django.core.mail import send_mail
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 env = environ.Env()
@@ -54,6 +56,17 @@ def tanya_teman(request):
       is_anonym=is_anonym, 
       attachment=key
     )
+
+    send_mail(
+        subject=f"New Question by {user.username}",
+        message= \
+          f"""A new question with id={question.pk} has been posted by {user.username}. 
+          \n\nQuestion text: {question_text}.""",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.NOTIFICATION_RECIPIENT_EMAIL],
+        fail_silently=False,
+    )
+
     return response(data={"message": "Image uploaded successfully", "key": key}, status=status.HTTP_200_OK)
     
   if request.method == 'GET':
@@ -142,6 +155,17 @@ def jawab_teman(request):
     )
     question.reply_count += 1
     question.save()
+
+    send_mail(
+        subject=f"New Answer by {user.username}",
+        message= \
+          f"""A new answer with id={answer.pk} has been posted by {user.username}.
+          \n\nRespective Question: {question.question_text}
+          \n\nAnswer text: {answer_text}.""",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.NOTIFICATION_RECIPIENT_EMAIL],
+        fail_silently=False,
+    )
 
     return response(data={"message": "Image uploaded successfully", "key": key}, status=status.HTTP_200_OK)
   
