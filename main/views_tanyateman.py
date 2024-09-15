@@ -11,11 +11,13 @@ from rest_framework import status
 from main.views_calculator import score_component
 from .serializers import AddQuestionSerializer, CalculatorSerializer, QuestionSerializer, ScoreComponentSerializer, TanyaTemanProfileSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer, HideVerificationQuestionSerializer, AnswerQuestionSerializer, AnswerSerializer
 from .utils import get_recommended_score, get_score, response, response_paged, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester, get_paged_questions
-from .models import Calculator, Course, LikePost, Profile, Question, Answer
+from .models import Calculator, Course, LikePost, Profile, Question, Answer, get_attachment_presigned_url
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 import boto3
 import environ
+from django.core.mail import send_mail
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 env = environ.Env()
@@ -54,6 +56,21 @@ def tanya_teman(request):
       is_anonym=is_anonym, 
       attachment=key
     )
+
+    admin_link = env("ULASKELAS_ADMIN_LINK")
+    question_link = env("ULASKELAS_QUESTION_LINK")
+    send_mail(
+        subject=f"New Question (ID {question.pk}) by {user.username}",
+        message= \
+          f"""A new question with id={question.pk} has been posted by {user.username}. 
+          \n\nQuestion text: {question_text}.
+          \n\nQuestion Link: {admin_link}/?next={question_link}/{question.id}/change/
+          \n\nImage Link: {get_attachment_presigned_url(question.attachment)}""",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.NOTIFICATION_RECIPIENT_EMAIL],
+        fail_silently=False,
+    )
+
     return response(data={"message": "Image uploaded successfully", "key": key}, status=status.HTTP_200_OK)
     
   if request.method == 'GET':
@@ -142,6 +159,21 @@ def jawab_teman(request):
     )
     question.reply_count += 1
     question.save()
+
+    admin_link = env("ULASKELAS_ADMIN_LINK")
+    answer_link = env("ULASKELAS_ANSWER_LINK")
+    send_mail(
+        subject=f"New Answer (ID {answer.pk}) by {user.username}",
+        message= \
+          f"""A new answer with id={answer.pk} has been posted by {user.username}.
+          \n\nRespective Question: {question.question_text}
+          \n\nAnswer text: {answer_text}.
+          \n\nAnswer Link: {admin_link}/?next={answer_link}/{answer.id}/change/
+          \n\nImage Link: {get_attachment_presigned_url(answer.attachment)}""",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.NOTIFICATION_RECIPIENT_EMAIL],
+        fail_silently=False,
+    )
 
     return response(data={"message": "Image uploaded successfully", "key": key}, status=status.HTTP_200_OK)
   
