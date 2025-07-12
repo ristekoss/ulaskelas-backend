@@ -9,7 +9,7 @@ jobs:
     uses: RistekCSUI/infra-workflows/.github/workflows/dockerhub-service-build.yml@main
     with:
       SERVICES: ulaskelas/ulaskelas-backend-prod
-      INSTANCE: Barato
+      INSTANCE: Pusilkom
       IMAGE: ulaskelas-backend
       DOCKERHUB_USER: ristekoss
       PLATFORMS: linux/amd64
