@@ -1,13 +1,19 @@
-FROM python:3.8
+FROM python:3.11.3-slim-buster AS build
 
-WORKDIR /opt/app
+WORKDIR /app
 
-COPY requirements.txt .
+# Copy requirements
+COPY ./requirements.txt ./
 
-RUN pip install -r requirements.txt
+# Install dependencies
+RUN set -ex && \
+    apt-get update && apt-get install -y libpq-dev gcc make && \
+    pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-ENV PORT=8008
-
+# Copy project and enable entrypoint script
 COPY . .
+# COPY .env.example ./.env
+RUN chmod +x ./deployment.sh
 
-CMD ["sh", "-c", "python manage.py runserver 0.0.0.0:${PORT} --noreload"]
+CMD ["./deployment.sh"]
