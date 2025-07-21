@@ -193,6 +193,7 @@ class Question(models.Model):
     class VerificationStatus(models.TextChoices):
         WAITING = "Menunggu Verifikasi"
         APPROVED = "Terverifikasi"
+        REJECTED = "Ditolak"
 
     user = models.ForeignKey(Profile, on_delete=CASCADE)
     question_text = models.TextField()
@@ -203,6 +204,22 @@ class Question(models.Model):
     reply_count = models.IntegerField(default=0)
     verification_status = models.TextField(choices=VerificationStatus.choices, default=VerificationStatus.WAITING)
     created_at = models.DateTimeField(default=timezone.now)
+
+    def save(self, *args, **kwargs):
+        if self.pk:  # means object already exists
+            old_status = Question.objects.get(pk=self.pk).verification_status
+            if old_status != self.verification_status and self.verification_status == VerificationStatus.REJECTED:
+                track_event(self.user.id, 'rejected_question_admin', {
+                    "question_id": self.id,
+                    "asked_by_user_id": self.user.id,
+                })
+            if old_status != self.verification_status and self.verification_status == VerificationStatus.APPROVED:
+                duration_seconds = (timezone.now() - self.created_at).total_seconds()
+                track_event(self.user.id, 'approved_question_admin', {
+                    "question_id": self.id,
+                    "approval_duration_seconds": duration_seconds,
+                })
+        super().save(*args, **kwargs)
     
 class Answer(models.Model):
     """

@@ -107,6 +107,8 @@ def review(request):
 				)
 
 				create_review_tag(review, tags)
+
+                track_event(user.id, 'wrote_user_review', {'course_code': course.code })
 				
 		except Exception as e:
 			logger.error("Failed to save review, request data {}".format(request.data))
@@ -144,6 +146,8 @@ def review(request):
 			return response(error="Review does not exist", status=status.HTTP_409_CONFLICT)
 		review.is_active = False
 		review.save()
+        track_event(user.id, 'deleted_user_review')
+
 		return response(status=status.HTTP_200_OK)
 
 @api_view(['GET', 'POST'])

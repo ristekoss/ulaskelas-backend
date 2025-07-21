@@ -27,3 +27,5 @@ toml==0.10.1
 urllib3==1.26.2
 whitenoise==5.2.0
 boto3==1.34.112
+mixpanel==4.10.1
+

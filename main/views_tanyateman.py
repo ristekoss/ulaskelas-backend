@@ -12,6 +12,7 @@ from main.views_calculator import score_component
 from .serializers import AddQuestionSerializer, CalculatorSerializer, QuestionSerializer, ScoreComponentSerializer, TanyaTemanProfileSerializer, UserCumulativeGPASerializer, UserGPASerializer, CourseForSemesterSerializer, SemesterWithCourseSerializer, HideVerificationQuestionSerializer, AnswerQuestionSerializer, AnswerSerializer
 from .utils import get_recommended_score, get_score, response, response_paged, update_course_score, validate_body, check_notexist_and_create_user_cumulative_gpa, validate_body_minimum, add_semester_gpa, delete_semester_gpa, update_semester_gpa, update_cumulative_gpa, get_fasilkom_courses, add_course_to_semester, validate_params, delete_course_to_semester, get_paged_questions
 from .models import Calculator, Course, LikePost, Profile, Question, Answer, get_attachment_presigned_url
+from .analytics import track_event
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 import boto3
@@ -71,6 +72,8 @@ def tanya_teman(request):
         fail_silently=False,
     )
 
+    track_event(user.id, 'created_question')
+
     return response(data={"message": "Image uploaded successfully", "key": key}, status=status.HTTP_200_OK)
     
   if request.method == 'GET':
@@ -114,10 +117,12 @@ def tanya_teman(request):
           object_id=id
       )
       question.like_count += 1
+      track_event(user.id, "liked_question", { 'question_id': id })
       question.save()
     else:
       question_like.delete()
       question.like_count -= 1
+      track_event(user.id, "unliked_question", { 'question_id': id })
       question.save()
 
     return response(status=status.HTTP_200_OK)
@@ -175,6 +180,10 @@ def jawab_teman(request):
         fail_silently=False,
     )
 
+    track_event(user.id, 'created_answer')
+    if question.reply_count == 1:
+      track_event(user.id, 'received_first_answer')
+
     return response(data={"message": "Image uploaded successfully", "key": key}, status=status.HTTP_200_OK)
   
   if request.method == 'GET':
@@ -217,10 +226,12 @@ def jawab_teman(request):
       )
       answer.like_count += 1
       answer.save()
+      track_event(user.id, "liked_answer", { 'answer_id': id })
     else:
       answer_like.delete()
       answer.like_count -= 1
       answer.save()
+      track_event(user.id, "unliked_answer", { 'answer_id': id })
 
     return response(status=status.HTTP_200_OK)
 
@@ -241,6 +252,8 @@ def tanya_teman_with_id(request, id):
     if question.user.pk != user.pk :
       return response(error="You are not allowed to delete other person's question", status=status.HTTP_403_FORBIDDEN)
     question.delete()
+    track_event(user.id, 'deleted_question')
+
     return response(status=status.HTTP_204_NO_CONTENT)
   
 def tanya_teman_paged(request, questions, is_history):
