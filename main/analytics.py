@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 try:
     mp = Mixpanel(settings.MIXPANEL_TOKEN)
 except Exception as e:
-    logger.error("Mixpanel token is not set or invalid.")
+    logger.error("Mixpanel token is not set or invalid:", e)
     mp = None
 
 
