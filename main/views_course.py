@@ -1,5 +1,6 @@
 import functools
 from django_filters.rest_framework.backends import DjangoFilterBackend
+from courseUpdater import courseApi
 from live_config.views import get_config
 from rest_framework.filters import SearchFilter
 from rest_framework import viewsets
@@ -15,81 +16,111 @@ logger = logging.getLogger(__name__)
 
 
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
-	serializer_class = CourseSerializer
-	filter_backends = [SearchFilter, DjangoFilterBackend]
-	search_fields = ['name', 'aliasName', 'description', 'code']
+    serializer_class = CourseSerializer
+    filter_backends = [SearchFilter, DjangoFilterBackend]
+    search_fields = ["name", "aliasName", "description", "code"]
 
-	def get_queryset(self):
-		return Course.objects.annotate(review_count=Count('reviews'))
+    def get_queryset(self):
+        return Course.objects.annotate(review_count=Count("reviews"))
 
-	def filter_by_study_program(self, courses, study_program):
-		try:
-			course_prefixes = get_config('study_program')[study_program].split(',')
-		except:
-			logger.error("Failed to get course prefix, study program {}".format(study_program))
-			return None
+    def filter_by_study_program(self, courses, study_program):
+        try:
+            course_prefixes = get_config("study_program")[study_program].split(",")
+        except:
+            logger.error(
+                "Failed to get course prefix, study program {}".format(study_program)
+            )
+            return None
 
-		courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(code__contains=x) for x in course_prefixes]))
-		return courses
+        courses = courses.filter(
+            functools.reduce(
+                lambda a, b: a | b, [Q(code__contains=x) for x in course_prefixes]
+            )
+        )
+        return courses
 
-	def list(self, request, *args, **kwargs):
-		courses = self.get_queryset()
-		error = None
+    def list(self, request, *args, **kwargs):
+        courses = self.get_queryset()
+        error = None
 
-		courses = filter_course(request, courses)
+        courses = filter_course(request, courses)
 
-		if not ('show_all' in request.GET and request.GET['show_all'].lower() == 'true'):
-			profile = request.user.profile_set.get()
-			courses = courses.filter(term=get_profile_term(profile))
-			study_program = profile.study_program
-			courses = self.filter_by_study_program(courses, study_program)
+        if not (
+            "show_all" in request.GET and request.GET["show_all"].lower() == "true"
+        ):
+            profile = request.user.profile_set.get()
+            courses = courses.filter(term=get_profile_term(profile))
+            study_program = profile.study_program
+            courses = self.filter_by_study_program(courses, study_program)
 
-			if courses == None:
-				error = 'Study program not found.'
-		
-		if not 'page' in request.GET:
-			data = self.get_serializer(courses, many=True).data
-			return response(data={'courses': data}, error=error)
-		
-		page = request.GET['page']
-		courses, total_page = get_paged_obj(courses, page)
-		data = self.get_serializer(courses, many=True).data
-		return response_paged(data={'courses': data}, error=error, total_page=total_page)
+            if courses == None:
+                error = "Study program not found."
 
-	def retrieve(self, request, pk=None, *args, **kwargs):
-		courses = Course.objects.filter(id=pk).prefetch_related(
-			Prefetch('reviews', queryset=Review.objects.prefetch_related(
-				Prefetch('review_tags', queryset=ReviewTag.objects.select_related('tag'))
-				))
-			).get()
-		data = self.get_serializer(courses, many=False).data
+        if not "page" in request.GET:
+            data = self.get_serializer(courses, many=True).data
+            return response(data={"courses": data}, error=error)
 
-		return response(data={'course': data})
+        page = request.GET["page"]
+        courses, total_page = get_paged_obj(courses, page)
+        data = self.get_serializer(courses, many=True).data
+        return response_paged(
+            data={"courses": data}, error=error, total_page=total_page
+        )
+
+    def retrieve(self, request, pk=None, *args, **kwargs):
+        courses = (
+            Course.objects.filter(id=pk)
+            .prefetch_related(
+                Prefetch(
+                    "reviews",
+                    queryset=Review.objects.prefetch_related(
+                        Prefetch(
+                            "review_tags",
+                            queryset=ReviewTag.objects.select_related("tag"),
+                        )
+                    ),
+                )
+            )
+            .get()
+        )
+        data = self.get_serializer(courses, many=False).data
+
+        return response(data={"course": data})
+
 
 def filter_course(request, courses):
-	code = request.query_params.get("code")
-	if code != None:
-		courses = courses.filter(Q(code__icontains=code))
+    code = request.query_params.get("code")
+    if code != None:
+        courses = courses.filter(Q(code__icontains=code))
 
-	lst_code_desc = request.query_params.get("code_desc")
-	if lst_code_desc != None:
-		lst_code_desc = lst_code_desc.split(',')
-		course_prefixes = get_config('course_prefixes')
-		reverse_course_prefix = {v: k for k, v in course_prefixes.items()}
-		courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(code__icontains=reverse_course_prefix[x]) for x in lst_code_desc]))
+    lst_code_desc = request.query_params.get("code_desc")
+    if lst_code_desc != None:
+        lst_code_desc = lst_code_desc.split(",")
+        course_prefixes = get_config("course_prefixes")
+        reverse_course_prefix = {v: k for k, v in course_prefixes.items()}
+        courses = courses.filter(
+            functools.reduce(
+                lambda a, b: a | b,
+                [Q(code__icontains=reverse_course_prefix[x]) for x in lst_code_desc],
+            )
+        )
 
-	name = request.query_params.get("name")
-	if name != None:
-		courses = courses.filter(Q(name__icontains=name))
+    name = request.query_params.get("name")
+    if name != None:
+        courses = courses.filter(Q(name__icontains=name))
 
-	lst_sks = request.query_params.get("sks")
-	if lst_sks != None:
-		lst_sks = lst_sks.split(',')
-		courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(sks=sks) for sks in lst_sks]))
+    lst_sks = request.query_params.get("sks")
+    if lst_sks != None:
+        lst_sks = lst_sks.split(",")
+        courses = courses.filter(
+            functools.reduce(lambda a, b: a | b, [Q(sks=sks) for sks in lst_sks])
+        )
 
-	lst_term = request.query_params.get("term")
-	if lst_term != None:
-		lst_term = lst_term.split(',')
-		courses = courses.filter(functools.reduce(lambda a, b: a | b, [Q(term=term) for term in lst_term]))
-	
-	return courses
+    lst_term = request.query_params.get("term")
+    if lst_term != None:
+        lst_term = lst_term.split(",")
+        courses = courses.filter(
+            functools.reduce(lambda a, b: a | b, [Q(term=term) for term in lst_term])
+        )
+
+    return courses
