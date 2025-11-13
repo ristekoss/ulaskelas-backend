@@ -6,7 +6,18 @@ from live_config.views import get_config
 from rest_framework.filters import SearchFilter
 from rest_framework import viewsets
 from .utils import get_paged_obj, get_profile_term, response, response_paged
-from django.db.models import Count, Prefetch, Q
+from django.db.models import (
+    F,
+    Case,
+    Count,
+    FloatField,
+    Func,
+    IntegerField,
+    Prefetch,
+    Q,
+    Value,
+    When,
+)
 from django_auto_prefetching import AutoPrefetchViewSetMixin
 
 from .models import Course, Review, ReviewTag
@@ -45,6 +56,7 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
         error = None
 
         courses = filter_course(request, courses)
+        courses.order_by("name")
 
         if not (
             "show_all" in request.GET and request.GET["show_all"].lower() == "true"
@@ -62,7 +74,7 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
             return response(data={"courses": data}, error=error)
 
         page = request.GET["page"]
-        courses, total_page = get_paged_obj(courses, page)
+        courses, total_page = get_paged_obj(courses, page, _sort_by_id=False)
         data = self.get_serializer(courses, many=True).data
         return response_paged(
             data={"courses": data}, error=error, total_page=total_page
@@ -109,15 +121,22 @@ def filter_course(request, courses):
     name = request.query_params.get("name")
     if name != None:
         course_names = [(c.id, c.name) for c in courses]
-        scored = []
+        scored = {}
         for cid, cname in course_names:
             score = fuzz.WRatio(name.lower(), cname.lower())
             if score > 60:
-                scored.append((cid, score))
-        scored.sort(key=lambda x: x[1])
-        scored_a = [id[0] for id in scored]
+                scored[cid] = score
 
-        courses = courses.filter(id__in=scored_a)
+        courses = (
+            courses.filter(id__in=scored.keys())
+            .annotate(
+                fuzzy_score=Case(
+                    *[When(id=k, then=Value(v)) for k, v in scored.items()],
+                    output_field=FloatField(),
+                )
+            )
+            .order_by("-fuzzy_score")
+        )
 
     lst_sks = request.query_params.get("sks")
     if lst_sks != None:
