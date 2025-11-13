@@ -113,9 +113,11 @@ def filter_course(request, courses):
         for cid, cname in course_names:
             score = fuzz.WRatio(name.lower(), cname.lower())
             if score > 60:
-                scored.append(cid)
+                scored.append((cid, score))
+        scored.sort(key=lambda x: x[1])
+        scored_a = [id[0] for id in scored]
 
-        courses = courses.filter(id__in=scored)
+        courses = courses.filter(id__in=scored_a)
 
     lst_sks = request.query_params.get("sks")
     if lst_sks != None:
