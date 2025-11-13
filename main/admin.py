@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import (
     Calculator,
     Course,
+    CourseSemester,
     ReviewLike,
     ScoreComponent,
     Tag,
@@ -27,5 +28,5 @@ admin.site.register(Calculator)
 admin.site.register(ScoreComponent)
 admin.site.register(Question, QuestionImageAdmin)
 admin.site.register(UserGPA)
+admin.site.register(CourseSemester)
 admin.site.register(Answer, AnswerImageAdmin)
-

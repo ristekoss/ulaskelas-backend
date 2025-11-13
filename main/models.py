@@ -230,7 +230,7 @@ class Question(models.Model):
 
     user = models.ForeignKey(Profile, on_delete=CASCADE)
     question_text = models.TextField()
-    course = models.ForeignKey(Course, on_delete=CASCADE, null=True)
+    course = models.ForeignKey(Course, on_delete=CASCADE, null=True, blank=True)
     is_anonym = models.IntegerField()
     attachment = models.CharField(null=True, max_length=120, blank=True)
     like_count = models.IntegerField(default=0)
