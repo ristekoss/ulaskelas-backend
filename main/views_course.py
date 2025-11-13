@@ -1,4 +1,5 @@
 import functools
+from rapidfuzz import fuzz
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from courseUpdater import courseApi
 from live_config.views import get_config
@@ -107,7 +108,14 @@ def filter_course(request, courses):
 
     name = request.query_params.get("name")
     if name != None:
-        courses = courses.filter(Q(name__icontains=name))
+        course_names = [(c.id, c.name) for c in courses]
+        scored = []
+        for cid, cname in course_names:
+            score = fuzz.WRatio(name.lower(), cname.lower())
+            if score > 70:
+                scored.append(cid)
+
+        courses = courses.filter(id__in=scored)
 
     lst_sks = request.query_params.get("sks")
     if lst_sks != None:
