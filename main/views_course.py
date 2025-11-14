@@ -124,7 +124,7 @@ def filter_course(request, courses):
         scored = {}
         for cid, cname in course_names:
             score = fuzz.WRatio(name.lower(), cname.lower())
-            if score > 60:
+            if score > 70:
                 scored[cid] = score
 
         courses = (

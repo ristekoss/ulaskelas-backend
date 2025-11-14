@@ -11,10 +11,8 @@ def update_courses(major_kd):
     baseurl = env("SUNJAD_BASE_URL")
     assert isinstance(baseurl, str)
 
-    _update_courses_on_url(baseurl)
-
-    # url = baseurl + f"/susunjadwal/api/majors/kd/{major_kd}/all_courses"
-    # _update_courses_on_url(url)
+    url = baseurl + f"/majors/kd/{major_kd}/all_courses"
+    _update_courses_on_url(url)
 
 
 def _update_courses_on_url(url: str):
