@@ -451,7 +451,7 @@ class SemesterWithCourseSerializer(serializers.ModelSerializer):
 
 class AddQuestionSerializer(serializers.Serializer):
     attachment_file = serializers.FileField(required=False, allow_null=True)
-    course_id = serializers.IntegerField()
+    course_id = serializers.IntegerField(required=False, allow_null=True)
     question_text = serializers.CharField()
     is_anonym = serializers.IntegerField()
 
@@ -563,4 +563,3 @@ class AnswerSerializer(serializers.ModelSerializer):
 
     def get_attachment_url(self, obj):
         return get_attachment_presigned_url(attachment=obj.attachment)
-
