@@ -19,6 +19,7 @@ from django.core.exceptions import ImproperlyConfigured
 import environ
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
+from .email_config import resolve_notification_recipients
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -193,10 +194,10 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = env("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-NOTIFICATION_RECIPIENT_EMAILS = env.list("NOTIFICATION_RECIPIENT_EMAILS", default=[])
-if not NOTIFICATION_RECIPIENT_EMAILS:
-    legacy_recipient = env("NOTIFICATION_RECIPIENT_EMAIL", default="")
-    NOTIFICATION_RECIPIENT_EMAILS = [legacy_recipient] if legacy_recipient else []
+NOTIFICATION_RECIPIENT_EMAILS = resolve_notification_recipients(
+    env.list("NOTIFICATION_RECIPIENT_EMAILS", default=[]),
+    env("NOTIFICATION_RECIPIENT_EMAIL", default=""),
+)
 SSO_UI_FORCE_SERVICE_HTTPS: True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
