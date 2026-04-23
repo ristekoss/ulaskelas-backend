@@ -114,7 +114,7 @@ def tanya_teman(request):
           \n\nQuestion Link: {admin_link}/?next={question_link}/{question.id}/change/
           \n\nImage Link: {get_attachment_presigned_url(question.attachment)}""",
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[settings.NOTIFICATION_RECIPIENT_EMAIL],
+            recipient_list=settings.NOTIFICATION_RECIPIENT_EMAILS,
             fail_silently=False,
         )
 
@@ -230,7 +230,7 @@ def jawab_teman(request):
           \n\nAnswer Link: {admin_link}/?next={answer_link}/{answer.id}/change/
           \n\nImage Link: {get_attachment_presigned_url(answer.attachment)}""",
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[settings.NOTIFICATION_RECIPIENT_EMAIL],
+            recipient_list=settings.NOTIFICATION_RECIPIENT_EMAILS,
             fail_silently=False,
         )
 
@@ -470,4 +470,3 @@ def get_reply_count(user, question_id):
         Q(question__pk=question_id),
         Q(verification_status=Answer.VerificationStatus.APPROVED) | Q(user=user),
     ).count()
-
