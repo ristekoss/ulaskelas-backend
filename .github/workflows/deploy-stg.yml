@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
-
+      - staging
+      
 jobs:
   deploy_service:
     name: Deploy Service
