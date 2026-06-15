@@ -55,8 +55,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 import boto3
 import environ
-from django.core.mail import send_mail
-from django.conf import settings
+from .mailer import send_notification_email
 
 logger = logging.getLogger(__name__)
 env = environ.Env()
@@ -107,15 +106,12 @@ def tanya_teman(request):
 
         admin_link = env("ULASKELAS_ADMIN_LINK")
         question_link = env("ULASKELAS_QUESTION_LINK")
-        send_mail(
+        send_notification_email(
             subject=f"New Question (ID {question.pk}) by {user.username}",
             message=f"""A new question with id={question.pk} has been posted by {user.username}. 
           \n\nQuestion text: {question_text}.
           \n\nQuestion Link: {admin_link}/?next={question_link}/{question.id}/change/
           \n\nImage Link: {get_attachment_presigned_url(question.attachment)}""",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=settings.NOTIFICATION_RECIPIENT_EMAILS,
-            fail_silently=False,
         )
 
         return response(
@@ -222,16 +218,13 @@ def jawab_teman(request):
 
         admin_link = env("ULASKELAS_ADMIN_LINK")
         answer_link = env("ULASKELAS_ANSWER_LINK")
-        send_mail(
+        send_notification_email(
             subject=f"New Answer (ID {answer.pk}) by {user.username}",
             message=f"""A new answer with id={answer.pk} has been posted by {user.username}.
           \n\nRespective Question: {question.question_text}
           \n\nAnswer text: {answer_text}.
           \n\nAnswer Link: {admin_link}/?next={answer_link}/{answer.id}/change/
           \n\nImage Link: {get_attachment_presigned_url(answer.attachment)}""",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=settings.NOTIFICATION_RECIPIENT_EMAILS,
-            fail_silently=False,
         )
 
         return response(
