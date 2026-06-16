@@ -16,6 +16,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from .notification_email import build_admin_change_url, send_submission_notification
+
 
 @api_view(["GET", "PUT", "POST", "DELETE"])
 def review(request):
@@ -154,6 +156,21 @@ def review(request):
                 error="Failed to save review, error message: {}".format(e),
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        review_admin_url = build_admin_change_url("review", review.id)
+        course_name = review.course.name if review.course else "-"
+        course_code = review.course.code if review.course else "-"
+        send_submission_notification(
+            subject=f"New Review (ID {review.pk}) by {user.username}",
+            message=f"""A new review with id={review.pk} has been posted by {user.username}.
+          \n\nCourse: {course_code} - {course_name}
+          \n\nAcademic Year: {academic_year}
+          \n\nSemester: {semester}
+          \n\nReview text: {content}
+          \n\nReview Link: {review_admin_url}""",
+            event_type="review",
+            object_id=review.id,
+        )
 
         return response(
             data=ReviewSerializer(review).data, status=status.HTTP_201_CREATED
@@ -295,4 +312,3 @@ def get_reviews_by_author(request, user_id, page, code):
         ).data,
         total_page=total_page,
     )
-
