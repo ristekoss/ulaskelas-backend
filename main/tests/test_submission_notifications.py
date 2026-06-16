@@ -39,8 +39,8 @@ class SubmissionNotificationViewTest(TestCase):
         self.tag = Tag.objects.create(tag_name="MENARIK")
         self.client.force_authenticate(user=self.user)
 
-    @patch("main.notification_email.send_mail")
-    def test_tanya_teman_post_sends_notification_email(self, mock_send_mail):
+    @patch("main.notification_email.send_notification_email")
+    def test_tanya_teman_post_sends_notification_email(self, mock_send_notification_email):
         response = self.client.post(
             "/api/tanya-teman",
             {"question_text": "Pertanyaan baru", "is_anonym": 0, "course_id": self.course.id},
@@ -49,15 +49,13 @@ class SubmissionNotificationViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Question.objects.count(), 1)
-        mock_send_mail.assert_called_once()
-        self.assertIn("New Question", mock_send_mail.call_args.kwargs["subject"])
-        self.assertEqual(
-            mock_send_mail.call_args.kwargs["recipient_list"],
-            ["admin@example.com"],
+        mock_send_notification_email.assert_called_once()
+        self.assertIn(
+            "New Question", mock_send_notification_email.call_args.kwargs["subject"]
         )
 
-    @patch("main.notification_email.send_mail")
-    def test_jawab_teman_post_sends_notification_email(self, mock_send_mail):
+    @patch("main.notification_email.send_notification_email")
+    def test_jawab_teman_post_sends_notification_email(self, mock_send_notification_email):
         question = Question.objects.create(
             user=self.profile,
             question_text="Pertanyaan lama",
@@ -74,12 +72,16 @@ class SubmissionNotificationViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Answer.objects.count(), 1)
-        mock_send_mail.assert_called_once()
-        self.assertIn("New Answer", mock_send_mail.call_args.kwargs["subject"])
+        mock_send_notification_email.assert_called_once()
+        self.assertIn(
+            "New Answer", mock_send_notification_email.call_args.kwargs["subject"]
+        )
 
     @patch("main.serializers.get_config", return_value={})
-    @patch("main.notification_email.send_mail")
-    def test_review_post_sends_notification_email(self, mock_send_mail, _mock_get_config):
+    @patch("main.notification_email.send_notification_email")
+    def test_review_post_sends_notification_email(
+        self, mock_send_notification_email, _mock_get_config
+    ):
         response = self.client.post(
             "/api/reviews",
             {
@@ -95,11 +97,18 @@ class SubmissionNotificationViewTest(TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(Review.objects.count(), 1)
-        mock_send_mail.assert_called_once()
-        self.assertIn("New Review", mock_send_mail.call_args.kwargs["subject"])
+        mock_send_notification_email.assert_called_once()
+        self.assertIn(
+            "New Review", mock_send_notification_email.call_args.kwargs["subject"]
+        )
 
-    @patch("main.notification_email.send_mail", side_effect=Exception("smtp down"))
-    def test_tanya_teman_post_stays_successful_when_email_fails(self, _mock_send_mail):
+    @patch(
+        "main.notification_email.send_notification_email",
+        side_effect=Exception("mailer down"),
+    )
+    def test_tanya_teman_post_stays_successful_when_email_fails(
+        self, _mock_send_notification_email
+    ):
         with self.assertLogs("main.notification_email", level="ERROR") as log_context:
             response = self.client.post(
                 "/api/tanya-teman",

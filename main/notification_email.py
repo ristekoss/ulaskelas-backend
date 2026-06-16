@@ -2,8 +2,9 @@ import logging
 
 import environ
 from django.conf import settings
-from django.core.mail import send_mail
 from django.urls import reverse
+
+from .mailer import send_notification_email
 
 logger = logging.getLogger(__name__)
 env = environ.Env()
@@ -34,12 +35,9 @@ def send_submission_notification(subject, message, event_type, object_id):
         return False
 
     try:
-        send_mail(
+        send_notification_email(
             subject=subject,
             message=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=recipients,
-            fail_silently=False,
         )
         return True
     except Exception:
