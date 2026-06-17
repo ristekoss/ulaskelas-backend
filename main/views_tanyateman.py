@@ -55,10 +55,14 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 import boto3
 import environ
-from .mailer import send_notification_email
 
 logger = logging.getLogger(__name__)
 env = environ.Env()
+
+from .notification_email import (
+    build_admin_change_url,
+    send_submission_notification,
+)
 
 
 @api_view(["GET", "PUT", "POST", "DELETE"])
@@ -104,14 +108,17 @@ def tanya_teman(request):
             attachment=key,
         )
 
-        admin_link = env("ULASKELAS_ADMIN_LINK")
-        question_link = env("ULASKELAS_QUESTION_LINK")
-        send_notification_email(
+        question_admin_url = build_admin_change_url(
+            "question", question.id, legacy_link_env="ULASKELAS_QUESTION_LINK"
+        )
+        send_submission_notification(
             subject=f"New Question (ID {question.pk}) by {user.username}",
             message=f"""A new question with id={question.pk} has been posted by {user.username}. 
           \n\nQuestion text: {question_text}.
-          \n\nQuestion Link: {admin_link}/?next={question_link}/{question.id}/change/
+          \n\nQuestion Link: {question_admin_url}
           \n\nImage Link: {get_attachment_presigned_url(question.attachment)}""",
+            event_type="question",
+            object_id=question.id,
         )
 
         return response(
@@ -216,15 +223,18 @@ def jawab_teman(request):
         question.reply_count += 1
         question.save()
 
-        admin_link = env("ULASKELAS_ADMIN_LINK")
-        answer_link = env("ULASKELAS_ANSWER_LINK")
-        send_notification_email(
+        answer_admin_url = build_admin_change_url(
+            "answer", answer.id, legacy_link_env="ULASKELAS_ANSWER_LINK"
+        )
+        send_submission_notification(
             subject=f"New Answer (ID {answer.pk}) by {user.username}",
             message=f"""A new answer with id={answer.pk} has been posted by {user.username}.
           \n\nRespective Question: {question.question_text}
           \n\nAnswer text: {answer_text}.
-          \n\nAnswer Link: {admin_link}/?next={answer_link}/{answer.id}/change/
+          \n\nAnswer Link: {answer_admin_url}
           \n\nImage Link: {get_attachment_presigned_url(answer.attachment)}""",
+            event_type="answer",
+            object_id=answer.id,
         )
 
         return response(
