@@ -21,6 +21,7 @@ from .fasilkom_courses import IK_COURSES, SI_COURSES
 
 
 def process_sso_profile(sso_profile):
+    is_new_user = False
     try:
         user = User.objects.get(username__iexact=sso_profile["username"])
         token, _ = Token.objects.get_or_create(user=user)
@@ -30,7 +31,8 @@ def process_sso_profile(sso_profile):
         user.save()
         generate_user_profile(user, sso_profile)
         token = Token.objects.create(user=user)
-    return token.key
+        is_new_user = True
+        return token.key, is_new_user
 
 
 def generate_user_profile(user, sso_profile):
