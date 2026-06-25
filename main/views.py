@@ -80,13 +80,14 @@ def login(request, sso_profile):
     """
     if sso_profile is not None:
         redirect_url = request.query_params.get("redirect_url")
-        token = process_sso_profile(sso_profile)
+        token, is_new_user = process_sso_profile(sso_profile)
         username = sso_profile["username"]
+        is_new_user_str = "true" if is_new_user else "false"
         if redirect_url is None:
             return HttpResponseRedirect(
-                "/token?token=%s&username=%s" % (token, username)
+                "/token?token=%s&username=%s&is_new_user=%s" % (token, username, is_new_user_str)
             )
-        return redirect("%s?token=%s&username=%s" % (redirect_url, token, username))
+        return redirect("%s?token=%s&username=%s&is_new_user=%s" % (redirect_url, token, username, is_new_user_str))
 
     data = {"message": "invalid sso"}
     return Response(data=data, status=status.HTTP_401_UNAUTHORIZED)
