@@ -32,7 +32,7 @@ def process_sso_profile(sso_profile):
         generate_user_profile(user, sso_profile)
         token = Token.objects.create(user=user)
         is_new_user = True
-        return token.key, is_new_user
+    return token.key, is_new_user
 
 
 def generate_user_profile(user, sso_profile):
