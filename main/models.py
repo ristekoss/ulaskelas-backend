@@ -97,6 +97,11 @@ class Review(models.Model):
     rating_beneficial = models.FloatField(null=True, default=0)
     rating_recommended = models.FloatField(null=True, default=0)
 
+    def __str__(self):
+        course_name = self.course.name if self.course else "Unknown Course"
+        username = self.user.username if self.user else "Unknown User"
+        return f"Review by {username} for {course_name}"
+
     def save(self, *args, **kwargs):
         """On save, update timestamps"""
         if not self.id:
