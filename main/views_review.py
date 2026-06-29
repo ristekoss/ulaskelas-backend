@@ -161,8 +161,8 @@ def review(request):
         course_name = review.course.name if review.course else "-"
         course_code = review.course.code if review.course else "-"
         send_submission_notification(
-            subject=f"New Review (ID {review.pk}) by {user.username}",
-            message=f"""A new review with id={review.pk} has been posted by {user.username}.
+            subject=f"New Review for {course_code} - {course_name} by {'Anonim' if is_anonym else user.username}",
+            message=f"""A new review with id={review.pk} has been posted by {'Anonim' if is_anonym else user.username}.
           \n\nCourse: {course_code} - {course_name}
           \n\nAcademic Year: {academic_year}
           \n\nSemester: {semester}
