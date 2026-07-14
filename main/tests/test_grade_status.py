@@ -164,8 +164,9 @@ class GradeStatusTest(TestCase):
         request = APIRequestFactory().get("/calculator-status")
         request.user = self.auth_user
         result = calculator_status(request)
+        data = result.data["data"]
 
-        self.assertEqual(result.data["semester"], "10")
+        self.assertEqual(data["semester"], "10")
         self.assertEqual(
-            result.data["courses"][0]["course_name"], "Higher Semester Course"
+            data["courses"][0]["course_name"], "Higher Semester Course"
         )
