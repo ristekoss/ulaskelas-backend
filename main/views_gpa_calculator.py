@@ -57,16 +57,31 @@ def calculator_status(request):
     user = Profile.objects.get(username=str(request.user))
     user_cumulative_gpa = check_notexist_and_create_user_cumulative_gpa(user)
     semesters = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa)
+    requested_semester = request.query_params.get("smt")
+
+    if requested_semester is not None:
+        selected_semester = semesters.filter(
+            given_semester=requested_semester
+        ).first()
+        if selected_semester is None:
+            return response(
+                error="There is no object with given_semester={}".format(
+                    requested_semester
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+    else:
+        selected_semester = None
 
     numeric_semesters = [
         semester
         for semester in semesters
         if str(semester.given_semester).isnumeric()
     ]
-    if not numeric_semesters:
+    if selected_semester is None and not numeric_semesters:
         return response(data={"semester": None, "courses": []})
 
-    current_semester = max(
+    current_semester = selected_semester or max(
         numeric_semesters, key=lambda semester: int(semester.given_semester)
     )
     course_semesters = CourseSemester.objects.filter(

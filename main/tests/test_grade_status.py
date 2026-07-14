@@ -170,3 +170,54 @@ class GradeStatusTest(TestCase):
         self.assertEqual(
             data["courses"][0]["course_name"], "Higher Semester Course"
         )
+
+    def test_calculator_status_uses_requested_semester(self):
+        calculator = Calculator.objects.create(
+            user=self.profile,
+            course=self.course,
+            total_percentage=100,
+        )
+        CourseSemester.objects.create(
+            semester=self.semester,
+            course=self.course,
+            calculator=calculator,
+        )
+        higher_semester = UserGPA.objects.create(
+            userCumulativeGPA=self.semester.userCumulativeGPA,
+            given_semester="10",
+        )
+        higher_course = Course.objects.create(
+            code="CS000002",
+            curriculum="2024",
+            name="Higher Semester Course",
+            sks=3,
+            term=10,
+        )
+        calculator = Calculator.objects.create(
+            user=self.profile,
+            course=higher_course,
+            total_percentage=100,
+        )
+        CourseSemester.objects.create(
+            semester=higher_semester,
+            course=higher_course,
+            calculator=calculator,
+        )
+
+        request = APIRequestFactory().get("/calculator-status?smt=Semester 1")
+        request.user = self.auth_user
+        result = calculator_status(request)
+
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.data["data"]["semester"], "Semester 1")
+        self.assertEqual(
+            result.data["data"]["courses"][0]["course_name"], "Test Course"
+        )
+
+    def test_calculator_status_returns_404_for_unknown_semester(self):
+        request = APIRequestFactory().get("/calculator-status?smt=99")
+        request.user = self.auth_user
+        result = calculator_status(request)
+
+        self.assertEqual(result.status_code, 404)
+        self.assertIn("given_semester=99", result.data["error"])
