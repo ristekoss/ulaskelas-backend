@@ -275,6 +275,76 @@ def get_null_sum_from_calculator(calculator: Calculator) -> float:
     return null_sum
 
 
+def get_calculator_status(calculator: Calculator) -> dict:
+    """Return the user-facing completeness status for a course calculator.
+
+    Weight completeness takes precedence over missing subcomponent scores so
+    the API always returns one deterministic status for a course.
+    """
+    if calculator.total_percentage < 100:
+        return {
+            "code": "WEIGHT_INCOMPLETE",
+            "label": "Bobot belum terisi",
+        }
+
+    has_missing_score = ScoreSubcomponent.objects.filter(
+        score_component__calculator=calculator,
+        subcomponent_score__isnull=True,
+    ).exists()
+    if has_missing_score:
+        return {
+            "code": "SCORE_INCOMPLETE",
+            "label": "Nilai ada yang belum terisi",
+        }
+
+    return {
+        "code": "COMPLETE",
+        "label": "Nilai lengkap",
+    }
+
+
+def get_calculator_progress(calculator: Calculator) -> dict:
+    """Return weight and score completion progress for a calculator."""
+    if calculator is None:
+        return {
+            "weight_progress": {"filled": 0, "total": 100, "percentage": 0},
+            "score_progress": {"filled": 0, "total": 0, "percentage": 0},
+        }
+
+    score_components = ScoreComponent.objects.filter(calculator=calculator)
+    score_total = 0
+    score_filled = 0
+    for score_component in score_components:
+        subcomponents = ScoreSubcomponent.objects.filter(
+            score_component=score_component
+        )
+        subcomponent_count = subcomponents.count()
+        if subcomponent_count == 0:
+            score_total += 1
+            score_filled += 1
+            continue
+
+        score_total += subcomponent_count
+        score_filled += subcomponents.filter(subcomponent_score__isnull=False).count()
+
+    score_percentage = round(score_filled / score_total * 100) if score_total else 0
+    weight_filled = calculator.total_percentage
+    weight_percentage = min(round(weight_filled), 100)
+
+    return {
+        "weight_progress": {
+            "filled": weight_filled,
+            "total": 100,
+            "percentage": weight_percentage,
+        },
+        "score_progress": {
+            "filled": score_filled,
+            "total": score_total,
+            "percentage": score_percentage,
+        },
+    }
+
+
 def get_recommended_score(calculator: Calculator, target_score: int) -> float:
     current_score = calculator.total_score
     score_left = max(target_score - current_score, 0)
@@ -305,4 +375,3 @@ def get_paged_questions(questions, page):
     paginator = Paginator(questions, 10)
     questions = paginator.get_page(page)
     return questions, paginator.num_pages
-

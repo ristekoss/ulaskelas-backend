@@ -34,6 +34,8 @@ from .utils import (
     delete_course_to_semester,
     get_max_possible_score,
     delete_semester,
+    get_calculator_status,
+    get_calculator_progress,
 )
 from .models import (
     Calculator,
@@ -48,6 +50,50 @@ from .models import (
 from django.db.models import F
 
 logger = logging.getLogger(__name__)
+
+
+@api_view(["GET"])
+def calculator_status(request):
+    user = Profile.objects.get(username=str(request.user))
+    user_cumulative_gpa = check_notexist_and_create_user_cumulative_gpa(user)
+    semesters = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa)
+
+    numeric_semesters = [
+        semester
+        for semester in semesters
+        if str(semester.given_semester).isnumeric()
+    ]
+    if not numeric_semesters:
+        return response(data={"semester": None, "courses": []})
+
+    current_semester = max(
+        numeric_semesters, key=lambda semester: int(semester.given_semester)
+    )
+    course_semesters = CourseSemester.objects.filter(
+        semester=current_semester
+    ).select_related("course", "calculator")
+
+    courses = []
+    for course_semester in course_semesters:
+        calculator = course_semester.calculator
+        courses.append(
+            {
+                "course_id": course_semester.course.id,
+                "course_name": course_semester.course.name,
+                "course_sks": course_semester.course.sks,
+                "status": get_calculator_status(calculator)
+                if calculator is not None
+                else {
+                    "code": "WEIGHT_INCOMPLETE",
+                    "label": "Bobot belum terisi",
+                },
+                **get_calculator_progress(calculator),
+            }
+        )
+
+    return response(
+        data={"semester": current_semester.given_semester, "courses": courses}
+    )
 
 
 @api_view(["GET", "DELETE", "POST"])
@@ -739,4 +785,3 @@ def course_subcomponent(request):
             data=ScoreComponentSerializer(score_component_value).data,
             status=status.HTTP_201_CREATED,
         )
-
