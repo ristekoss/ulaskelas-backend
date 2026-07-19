@@ -4,7 +4,7 @@ from django_filters.rest_framework.backends import DjangoFilterBackend
 from courseUpdater import courseApi
 from live_config.views import get_config
 from rest_framework.filters import SearchFilter
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
 from .utils import get_paged_obj, get_profile_term, response, response_paged
 from django.db.models import (
@@ -46,6 +46,30 @@ def get_major_choices():
     return sorted(choices, key=str.casefold)
 
 
+def get_study_program_for_major(major):
+    """Resolve a display major to the study-program config key."""
+    orgs = get_config("kd_org") or {}
+    requested_major = major.strip().casefold()
+    matches = {}
+
+    for org in orgs.values():
+        faculty = org.get("faculty")
+        study_program = org.get("study_program")
+        if not faculty or not study_program:
+            continue
+
+        full_label = "{} - {}".format(
+            _display_name(faculty), _display_name(study_program)
+        ).casefold()
+        program_label = _display_name(study_program).casefold()
+        if requested_major == full_label or requested_major == program_label:
+            matches[study_program] = study_program
+
+    if len(matches) == 1:
+        return next(iter(matches.values()))
+    return None
+
+
 @api_view(["GET"])
 def majors(request):
     return response(data={"majors": get_major_choices()})
@@ -61,7 +85,11 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 
     def filter_by_study_program(self, courses, study_program):
         try:
-            course_prefixes = get_config("study_program")[study_program].split(",")
+            course_prefixes = [
+                prefix.strip()
+                for prefix in get_config("study_program")[study_program].split(",")
+                if prefix.strip()
+            ]
         except:
             logger.error(
                 "Failed to get course prefix, study program {}".format(study_program)
@@ -70,7 +98,7 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 
         courses = courses.filter(
             functools.reduce(
-                lambda a, b: a | b, [Q(code__contains=x) for x in course_prefixes]
+                lambda a, b: a | b, [Q(code__startswith=x) for x in course_prefixes]
             )
         )
         return courses
@@ -82,13 +110,30 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
         courses = filter_course(request, courses)
         courses.order_by("name")
 
-        if not (
-            "show_all" in request.GET and request.GET["show_all"].lower() == "true"
-        ):
+        show_all = request.GET.get("show_all", "").lower() == "true"
+        requested_major = request.query_params.get("major")
+        if requested_major is not None:
+            study_program = get_study_program_for_major(requested_major)
+            if study_program is None:
+                return response(
+                    error="Major not found or has no course mapping.",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            courses = self.filter_by_study_program(courses, study_program)
+            if courses is None:
+                return response(
+                    error="Major not found or has no course mapping.",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if not show_all:
             profile = request.user.profile_set.get()
             courses = courses.filter(term=get_profile_term(profile))
-            study_program = profile.study_program
-            courses = self.filter_by_study_program(courses, study_program)
+
+            if requested_major is None:
+                study_program = profile.study_program
+                courses = self.filter_by_study_program(courses, study_program)
 
             if courses == None:
                 error = "Study program not found."
