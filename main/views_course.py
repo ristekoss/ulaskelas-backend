@@ -5,6 +5,7 @@ from courseUpdater import courseApi
 from live_config.views import get_config
 from rest_framework.filters import SearchFilter
 from rest_framework import viewsets
+from rest_framework.decorators import api_view
 from .utils import get_paged_obj, get_profile_term, response, response_paged
 from django.db.models import (
     F,
@@ -25,6 +26,29 @@ from .serializers import CourseSerializer
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _display_name(value):
+    """Return the local display name from a bilingual config value."""
+    return value.split("(", 1)[0].strip()
+
+
+def get_major_choices():
+    """Build the unique, sorted faculty-study-program display values."""
+    orgs = get_config("kd_org") or {}
+    choices = {
+        "{} - {}".format(
+            _display_name(org["faculty"]), _display_name(org["study_program"])
+        )
+        for org in orgs.values()
+        if org.get("faculty") and org.get("study_program")
+    }
+    return sorted(choices, key=str.casefold)
+
+
+@api_view(["GET"])
+def majors(request):
+    return response(data={"majors": get_major_choices()})
 
 
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
