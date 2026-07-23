@@ -381,10 +381,13 @@ class ScoreComponentSerializer(serializers.ModelSerializer):
 
     def get_score(self, obj):
         all_subcomponent = ScoreSubcomponent.objects.filter(score_component=obj)
+        if not all_subcomponent.exists():
+            return obj.score
+
         is_all_null = all(
             subcomponent.subcomponent_score is None for subcomponent in all_subcomponent
         )
-        score_rendered = -1 if is_all_null else obj.score
+        score_rendered = None if is_all_null else obj.score
         return score_rendered
 
 
