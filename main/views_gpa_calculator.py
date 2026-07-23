@@ -36,6 +36,8 @@ from .utils import (
     delete_semester,
     get_calculator_status,
     get_calculator_progress,
+    calculate_average,
+    normalize_score,
 )
 from .models import (
     Calculator,
@@ -470,7 +472,9 @@ def course_component(request):
         calculator_id = request.data.get("calculator_id")
         name = request.data.get("name")
         weight = request.data.get("weight")
-        score = request.data.get("score")
+        score = normalize_score(request.data.get("score"))
+        if score is None:
+            score = 0
 
         calculator = Calculator.objects.filter(pk=calculator_id).first()
         if calculator is None:
@@ -635,6 +639,7 @@ def course_subcomponent(request):
                 error="frequency should equal to the length of scores!",
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        scores = [normalize_score(score) for score in scores]
 
         calculator = Calculator.objects.filter(pk=calculator_id).first()
         if calculator is None:
@@ -666,14 +671,14 @@ def course_subcomponent(request):
                 subcomponent_number=index + 1,
                 subcomponent_score=score,
             )
-            subcomponent_contribution = 0 if score is None else score / frequency
-            component_total_score += subcomponent_contribution
+        component_total_score = calculate_average(scores)
+        stored_component_score = component_total_score or 0
 
         # Update score of score component
-        score_component.score = component_total_score
+        score_component.score = stored_component_score
         score_component.save()
 
-        calculator.total_score += component_total_score * weight / 100
+        calculator.total_score += stored_component_score * weight / 100
         calculator.total_percentage += weight
         calculator.save()
 
@@ -687,7 +692,7 @@ def course_subcomponent(request):
         )
 
         score_component_value = ScoreComponent.objects.filter(
-            calculator=calculator, name=name, weight=weight, score=component_total_score
+            calculator=calculator, name=name, weight=weight, score=stored_component_score
         ).first()
         return response(
             data=ScoreComponentSerializer(score_component_value).data,
@@ -748,7 +753,7 @@ def course_subcomponent(request):
         previous_frequency = ScoreSubcomponent.objects.filter(
             score_component=score_component
         ).count()
-        component_total_score = 0
+        scores = [normalize_score(score) for score in scores]
 
         for index in range(1, frequency + 1):
             if index <= previous_frequency:  # Update previous subcomponent
@@ -763,10 +768,8 @@ def course_subcomponent(request):
                     subcomponent_number=index,
                     subcomponent_score=scores[index - 1],
                 )
-            subcomponent_contribution = (
-                0 if scores[index - 1] is None else scores[index - 1] / frequency
-            )
-            component_total_score += subcomponent_contribution
+        component_total_score = calculate_average(scores)
+        stored_component_score = component_total_score or 0
 
         for index in range(frequency + 1, previous_frequency + 1):
             current_score_subcomponent = ScoreSubcomponent.objects.filter(
@@ -777,10 +780,10 @@ def course_subcomponent(request):
         # Update Score Component
         score_component.name = name
         score_component.weight = weight
-        score_component.score = component_total_score
+        score_component.score = stored_component_score
         score_component.save()
 
-        calculator.total_score += score_component.score * score_component.weight / 100
+        calculator.total_score += stored_component_score * score_component.weight / 100
         calculator.total_percentage += score_component.weight
         calculator.save()
 
@@ -794,7 +797,7 @@ def course_subcomponent(request):
         )
 
         score_component_value = ScoreComponent.objects.filter(
-            calculator=calculator, name=name, weight=weight, score=component_total_score
+            calculator=calculator, name=name, weight=weight, score=stored_component_score
         ).first()
         return response(
             data=ScoreComponentSerializer(score_component_value).data,
