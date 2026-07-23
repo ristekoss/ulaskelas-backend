@@ -20,6 +20,20 @@ from .models import (
 from .fasilkom_courses import IK_COURSES, SI_COURSES
 
 
+def normalize_score(score):
+    """Normalize empty score inputs to the null value used by the database."""
+    return None if score is None or score == "" else score
+
+
+def calculate_average(scores):
+    """Average only scores that have been filled in."""
+    filled_scores = [normalize_score(score) for score in scores]
+    filled_scores = [score for score in filled_scores if score is not None]
+    if not filled_scores:
+        return None
+    return sum(filled_scores) / len(filled_scores)
+
+
 def process_sso_profile(sso_profile):
     is_new_user = False
     try:
