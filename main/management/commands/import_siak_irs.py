@@ -4,25 +4,41 @@ from main.integrations.siak_irs import (
     IRSParseError,
     collect_page_tables,
     import_courses,
-    parse_irs_tables,
+    parse_latest_history,
     resolve_courses,
 )
 from main.models import CourseSemester, Profile
 
 
-DEFAULT_SIAK_URL = "https://academic.ui.ac.id/"
+DEFAULT_HISTORY_URL = "https://academic.ui.ac.id/main/Academic/HistoryByTerm"
+AUTHENTICATED_MARKER = (
+    "() => Array.from(document.querySelectorAll('a')).some((link) => "
+    "/\\/Authentication\\/Logout/i.test(link.getAttribute('href') || '') || "
+    "link.textContent.trim().toLowerCase() === 'logout')"
+)
 
 
 class Command(BaseCommand):
     help = (
-        "Open a temporary browser session and import the active SIAK IRS into "
-        "a local calculator semester."
+        "Open a temporary browser session and import the latest non-empty SIAK "
+        "academic-history period into a local calculator semester."
     )
 
     def add_arguments(self, parser):
         parser.add_argument("--username", required=True)
         parser.add_argument("--semester", required=True)
-        parser.add_argument("--siak-url", default=DEFAULT_SIAK_URL)
+        parser.add_argument(
+            "--history-url",
+            "--siak-url",
+            dest="history_url",
+            default=DEFAULT_HISTORY_URL,
+        )
+        parser.add_argument(
+            "--login-timeout",
+            type=int,
+            default=300,
+            help="Seconds to wait for the interactive SIAK login.",
+        )
         parser.add_argument(
             "--dry-run",
             action="store_true",
@@ -42,8 +58,13 @@ class Command(BaseCommand):
             raise CommandError(
                 "Profile with username={} was not found.".format(options["username"])
             )
+        if options["login_timeout"] <= 0:
+            raise CommandError("login-timeout must be greater than zero.")
 
-        scraped_courses = self._scrape(options["siak_url"])
+        scraped_history = self._scrape(
+            options["history_url"], options["login_timeout"]
+        )
+        scraped_courses = scraped_history["courses"]
         resolved, unmatched = resolve_courses(scraped_courses)
         existing_codes = set(
             CourseSemester.objects.filter(
@@ -56,6 +77,7 @@ class Command(BaseCommand):
         self._print_preview(
             profile=profile,
             semester=options["semester"],
+            source_period=scraped_history["period"],
             resolved=resolved,
             unmatched=unmatched,
             existing_codes=existing_codes,
@@ -85,9 +107,10 @@ class Command(BaseCommand):
             )
         )
 
-    def _scrape(self, siak_url):
+    def _scrape(self, history_url, login_timeout):
         try:
             from playwright.sync_api import Error as PlaywrightError
+            from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
             from playwright.sync_api import sync_playwright
         except ImportError as exc:
             raise CommandError(
@@ -101,12 +124,21 @@ class Command(BaseCommand):
                 context = browser.new_context()
                 try:
                     page = context.new_page()
-                    page.goto(siak_url, wait_until="domcontentloaded")
+                    page.goto(history_url, wait_until="domcontentloaded")
                     self.stdout.write(
-                        "Complete the SIAK challenge/login, open the active IRS "
-                        "page, then return here."
+                        "Complete the SIAK challenge/login in the browser. The "
+                        "latest academic-history period will be loaded automatically."
                     )
-                    input("Press Enter when the IRS table is visible... ")
+                    page.wait_for_function(
+                        AUTHENTICATED_MARKER,
+                        timeout=login_timeout * 1000,
+                    )
+                    page.goto(history_url, wait_until="domcontentloaded")
+                    page.wait_for_function(
+                        AUTHENTICATED_MARKER,
+                        timeout=30 * 1000,
+                    )
+                    page.wait_for_selector("table", state="attached", timeout=30 * 1000)
                     tables = []
                     for frame in list(page.frames):
                         try:
@@ -115,21 +147,31 @@ class Command(BaseCommand):
                             if frame.is_detached() or "Frame was detached" in str(exc):
                                 continue
                             raise
-                    return parse_irs_tables(tables)
+                    return parse_latest_history(tables)
                 finally:
                     context.close()
                     browser.close()
         except IRSParseError as exc:
             raise CommandError(str(exc)) from exc
+        except PlaywrightTimeoutError as exc:
+            raise CommandError(
+                "Timed out waiting for SIAK login or academic-history content."
+            ) from exc
         except PlaywrightError as exc:
             raise CommandError("SIAK browser session failed: {}".format(exc)) from exc
 
     def _print_preview(
-        self, profile, semester, resolved, unmatched, existing_codes
+        self,
+        profile,
+        semester,
+        source_period,
+        resolved,
+        unmatched,
+        existing_codes,
     ):
         self.stdout.write(
-            "Target: {} ({}) — semester {}".format(
-                profile.name, profile.username, semester
+            "Target: {} ({}) — calculator semester {} — SIAK period {}".format(
+                profile.name, profile.username, semester, source_period
             )
         )
         self.stdout.write("Recognized local courses:")
