@@ -108,6 +108,25 @@ Now you can login with superuser you just create on <https://localhost:8000> and
 Sunjad all courses mock servers
 https://3e081de5-8b4c-46ea-8736-99476c47204b.mock.pstmn.io/courses 
 
+### Synchronize the cross-faculty course catalog
+
+After applying migrations, populate all supported S1, D3, and D4 programs:
+
+```bash
+python manage.py migrate
+python manage.py sync_courses --all
+```
+
+To refresh only one SSO/SunJad organization code:
+
+```bash
+python manage.py sync_courses --org-code 01.00.12.01
+```
+
+Run the all-program command weekly from the deployment scheduler. A failed
+program is reported at the end without preventing the remaining programs from
+being synchronized.
+
 
 -------
 
