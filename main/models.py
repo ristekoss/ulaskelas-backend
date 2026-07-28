@@ -45,6 +45,54 @@ class Course(models.Model):
         return self.name
 
 
+class StudyProgram(models.Model):
+    """A UI study program identified by the org code used by SSO and SunJad."""
+
+    org_code = models.CharField(max_length=63, primary_key=True)
+    faculty = models.CharField(max_length=127)
+    study_program = models.CharField(max_length=127)
+    educational_program = models.CharField(max_length=127)
+    is_supported = models.BooleanField(default=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return "{} - {}".format(self.faculty, self.study_program)
+
+
+class StudyProgramCourse(models.Model):
+    """Program-specific course metadata supplied by SunJad."""
+
+    class CourseType(models.TextChoices):
+        MANDATORY = "MANDATORY", "Wajib"
+        ELECTIVE = "ELECTIVE", "Pilihan"
+        UNKNOWN = "UNKNOWN", "Belum diketahui"
+
+    study_program = models.ForeignKey(
+        StudyProgram, on_delete=models.CASCADE, related_name="course_mappings"
+    )
+    course = models.ForeignKey(
+        Course, on_delete=models.CASCADE, related_name="study_program_courses"
+    )
+    program_term = models.PositiveSmallIntegerField()
+    curriculum = models.CharField(max_length=20, blank=True)
+    course_type = models.CharField(
+        max_length=16, choices=CourseType.choices, default=CourseType.UNKNOWN
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["study_program", "course"],
+                name="unique_study_program_course",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["study_program", "is_active", "program_term"]),
+            models.Index(fields=["course_type"]),
+        ]
+
+
 class Profile(models.Model):
     """
     User information generated from SSO UI attributes.
