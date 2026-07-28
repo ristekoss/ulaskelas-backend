@@ -56,6 +56,8 @@ class CourseSerializer(serializers.ModelSerializer):
     rating_beneficial = serializers.SerializerMethodField("get_rating_beneficial")
     rating_recommended = serializers.SerializerMethodField("get_rating_recommended")
     rating_average = serializers.SerializerMethodField("get_rating_average")
+    program_term = serializers.SerializerMethodField("get_program_term")
+    course_type = serializers.SerializerMethodField("get_course_type")
 
     def get_code_desc(self, obj):
         course_prefixes = get_config("course_prefixes")
@@ -63,6 +65,12 @@ class CourseSerializer(serializers.ModelSerializer):
         if code in course_prefixes:
             return course_prefixes[code]
         return None
+
+    def get_program_term(self, obj):
+        return getattr(obj, "program_term", None)
+
+    def get_course_type(self, obj):
+        return getattr(obj, "annotated_course_type", "UNKNOWN")
 
     def get_review_count(self, obj):
         return (
@@ -160,6 +168,8 @@ class CourseSerializer(serializers.ModelSerializer):
                 "rating_beneficial",
                 "rating_recommended",
                 "rating_average",
+                "program_term",
+                "course_type",
             ]
         )
 

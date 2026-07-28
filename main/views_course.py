@@ -1,73 +1,68 @@
 import functools
-from rapidfuzz import fuzz
+import logging
+
+from django.db.models import Case, Count, F, FloatField, Prefetch, Q, Value, When
 from django_filters.rest_framework.backends import DjangoFilterBackend
-from courseUpdater import courseApi
+from django_auto_prefetching import AutoPrefetchViewSetMixin
 from live_config.views import get_config
-from rest_framework.filters import SearchFilter
+from rapidfuzz import fuzz
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
-from .utils import get_paged_obj, get_profile_term, response, response_paged
-from django.db.models import (
-    F,
-    Case,
-    Count,
-    FloatField,
-    Func,
-    IntegerField,
-    Prefetch,
-    Q,
-    Value,
-    When,
-)
-from django_auto_prefetching import AutoPrefetchViewSetMixin
+from rest_framework.filters import SearchFilter
 
-from .models import Course, Review, ReviewTag
+from courseUpdater.courseApi import is_supported_educational_program
+from .models import Course, Review, ReviewTag, StudyProgramCourse
 from .serializers import CourseSerializer
-import logging
+from .utils import get_paged_obj, get_profile_term, response, response_paged
+
 
 logger = logging.getLogger(__name__)
 
 
 def _display_name(value):
     """Return the local display name from a bilingual config value."""
-    return value.split("(", 1)[0].strip()
+    return (value or "").split("(", 1)[0].strip()
 
 
 def get_major_choices():
-    """Build the unique, sorted faculty-study-program display values."""
+    """Return supported programs with stable org-code identifiers."""
     orgs = get_config("kd_org") or {}
-    choices = {
-        "{} - {}".format(
-            _display_name(org["faculty"]), _display_name(org["study_program"])
-        )
-        for org in orgs.values()
-        if org.get("faculty") and org.get("study_program")
-    }
-    return sorted(choices, key=str.casefold)
-
-
-def get_study_program_for_major(major):
-    """Resolve a display major to the study-program config key."""
-    orgs = get_config("kd_org") or {}
-    requested_major = major.strip().casefold()
-    matches = {}
-
-    for org in orgs.values():
-        faculty = org.get("faculty")
-        study_program = org.get("study_program")
-        if not faculty or not study_program:
+    available_org_codes = set(
+        StudyProgramCourse.objects.filter(
+            is_active=True, study_program__is_supported=True
+        ).values_list("study_program_id", flat=True)
+    )
+    choices = []
+    for org_code, org in orgs.items():
+        educational_program = org.get("educational_program", "")
+        if not is_supported_educational_program(educational_program):
             continue
 
-        full_label = "{} - {}".format(
-            _display_name(faculty), _display_name(study_program)
-        ).casefold()
-        program_label = _display_name(study_program).casefold()
-        if requested_major == full_label or requested_major == program_label:
-            matches[study_program] = study_program
+        faculty = _display_name(org.get("faculty"))
+        study_program = _display_name(org.get("study_program"))
+        educational_program_display = _display_name(educational_program)
+        choices.append(
+            {
+                "id": org_code,
+                "org_code": org_code,
+                "faculty": faculty,
+                "study_program": study_program,
+                "educational_program": educational_program_display,
+                "display_name": "{} - {} - {}".format(
+                    faculty, study_program, educational_program_display
+                ),
+                "available": org_code in available_org_codes,
+            }
+        )
+    return sorted(choices, key=lambda item: item["display_name"].casefold())
 
-    if len(matches) == 1:
-        return next(iter(matches.values()))
-    return None
+
+def is_known_supported_major(org_code):
+    org = (get_config("kd_org") or {}).get(org_code)
+    return bool(
+        org
+        and is_supported_educational_program(org.get("educational_program", ""))
+    )
 
 
 @api_view(["GET"])
@@ -78,79 +73,65 @@ def majors(request):
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = CourseSerializer
     filter_backends = [SearchFilter, DjangoFilterBackend]
-    search_fields = ["name", "aliasName", "description", "code"]
+    search_fields = ["name", "description", "code"]
 
     def get_queryset(self):
         return Course.objects.annotate(review_count=Count("reviews"))
 
-    def filter_by_study_program(self, courses, study_program):
-        try:
-            course_prefixes = [
-                prefix.strip()
-                for prefix in get_config("study_program")[study_program].split(",")
-                if prefix.strip()
-            ]
-        except:
-            logger.error(
-                "Failed to get course prefix, study program {}".format(study_program)
-            )
-            return None
-
-        courses = courses.filter(
-            functools.reduce(
-                lambda a, b: a | b, [Q(code__startswith=x) for x in course_prefixes]
-            )
-        )
-        return courses
-
     def list(self, request, *args, **kwargs):
         courses = self.get_queryset()
-        error = None
-
-        courses = filter_course(request, courses)
-        courses.order_by("name")
-
-        show_all = request.GET.get("show_all", "").lower() == "true"
+        show_all = request.query_params.get("show_all", "").lower() == "true"
         requested_major = request.query_params.get("major")
-        if requested_major is not None:
-            study_program = get_study_program_for_major(requested_major)
-            if study_program is None:
-                return response(
-                    error="Major not found or has no course mapping.",
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        effective_major = requested_major
 
-            courses = self.filter_by_study_program(courses, study_program)
-            if courses is None:
-                return response(
-                    error="Major not found or has no course mapping.",
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        if not show_all:
+        if effective_major is None and not show_all:
             profile = request.user.profile_set.get()
-            courses = courses.filter(term=get_profile_term(profile))
+            effective_major = profile.org_code
 
-            if requested_major is None:
-                study_program = profile.study_program
-                courses = self.filter_by_study_program(courses, study_program)
+        if effective_major is not None:
+            if not is_known_supported_major(effective_major):
+                return response(
+                    error={
+                        "code": "MAJOR_NOT_SUPPORTED",
+                        "message": (
+                            "Major was not found or is outside the supported "
+                            "program scope."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            courses = courses.filter(
+                study_program_courses__study_program_id=effective_major,
+                study_program_courses__is_active=True,
+            ).annotate(
+                program_term=F("study_program_courses__program_term"),
+                annotated_course_type=F("study_program_courses__course_type"),
+            )
 
-            if courses == None:
-                error = "Study program not found."
-
-        if not "page" in request.GET:
-            data = self.get_serializer(courses, many=True).data
-            return response(data={"courses": data}, error=error)
-
-        page = request.GET["page"]
-        courses, total_page = get_paged_obj(courses, page, _sort_by_id=False)
-        data = self.get_serializer(courses, many=True).data
-        return response_paged(
-            data={"courses": data}, error=error, total_page=total_page
+        courses = filter_course(
+            request, courses, program_filtered=effective_major is not None
         )
 
+        if not show_all and request.query_params.get("term") is None:
+            profile = request.user.profile_set.get()
+            if effective_major is not None:
+                courses = courses.filter(program_term=get_profile_term(profile))
+            else:
+                courses = courses.filter(term=get_profile_term(profile))
+
+        courses = courses.order_by("name").distinct()
+        if "page" not in request.GET:
+            data = self.get_serializer(courses, many=True).data
+            return response(data={"courses": data})
+
+        courses, total_page = get_paged_obj(
+            courses, request.GET["page"], _sort_by_id=False
+        )
+        data = self.get_serializer(courses, many=True).data
+        return response_paged(data={"courses": data}, total_page=total_page)
+
     def retrieve(self, request, pk=None, *args, **kwargs):
-        courses = (
+        course = (
             Course.objects.filter(id=pk)
             .prefetch_related(
                 Prefetch(
@@ -165,60 +146,79 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
             )
             .get()
         )
-        data = self.get_serializer(courses, many=False).data
-
-        return response(data={"course": data})
+        return response(data={"course": self.get_serializer(course).data})
 
 
-def filter_course(request, courses):
+def filter_course(request, courses, program_filtered=False):
     code = request.query_params.get("code")
-    if code != None:
-        courses = courses.filter(Q(code__icontains=code))
+    if code is not None:
+        courses = courses.filter(code__icontains=code)
 
-    lst_code_desc = request.query_params.get("code_desc")
-    if lst_code_desc != None:
-        lst_code_desc = lst_code_desc.split(",")
-        course_prefixes = get_config("course_prefixes")
-        reverse_course_prefix = {v: k for k, v in course_prefixes.items()}
+    code_descriptions = request.query_params.get("code_desc")
+    if code_descriptions is not None:
+        requested_descriptions = code_descriptions.split(",")
+        course_prefixes = get_config("course_prefixes") or {}
+        reverse_course_prefix = {value: key for key, value in course_prefixes.items()}
+        prefixes = [
+            reverse_course_prefix[value]
+            for value in requested_descriptions
+            if value in reverse_course_prefix
+        ]
+        if not prefixes:
+            return courses.none()
         courses = courses.filter(
             functools.reduce(
-                lambda a, b: a | b,
-                [Q(code__icontains=reverse_course_prefix[x]) for x in lst_code_desc],
+                lambda left, right: left | right,
+                [Q(code__startswith=prefix) for prefix in prefixes],
             )
         )
 
     name = request.query_params.get("name")
-    if name != None:
-        course_names = [(c.id, c.name) for c in courses]
+    if name is not None:
+        course_names = [(course.id, course.name) for course in courses]
         scored = {}
-        for cid, cname in course_names:
-            score = fuzz.WRatio(name.lower(), cname.lower())
+        for course_id, course_name in course_names:
+            score = fuzz.WRatio(name.lower(), course_name.lower())
             if score > 70:
-                scored[cid] = score
+                scored[course_id] = score
 
-        courses = (
-            courses.filter(id__in=scored.keys())
-            .annotate(
-                fuzzy_score=Case(
-                    *[When(id=k, then=Value(v)) for k, v in scored.items()],
-                    output_field=FloatField(),
-                )
+        courses = courses.filter(id__in=scored.keys()).annotate(
+            fuzzy_score=Case(
+                *[When(id=key, then=Value(value)) for key, value in scored.items()],
+                output_field=FloatField(),
             )
-            .order_by("-fuzzy_score")
-        )
+        ).order_by("-fuzzy_score")
 
-    lst_sks = request.query_params.get("sks")
-    if lst_sks != None:
-        lst_sks = lst_sks.split(",")
-        courses = courses.filter(
-            functools.reduce(lambda a, b: a | b, [Q(sks=sks) for sks in lst_sks])
-        )
+    sks_values = request.query_params.get("sks")
+    if sks_values is not None:
+        courses = courses.filter(sks__in=sks_values.split(","))
 
-    lst_term = request.query_params.get("term")
-    if lst_term != None:
-        lst_term = lst_term.split(",")
-        courses = courses.filter(
-            functools.reduce(lambda a, b: a | b, [Q(term=term) for term in lst_term])
-        )
+    term_values = request.query_params.get("term")
+    if term_values is not None:
+        term_values = term_values.split(",")
+        if program_filtered:
+            courses = courses.filter(program_term__in=term_values)
+        else:
+            courses = courses.filter(term__in=term_values)
+
+    course_types = request.query_params.get("course_type")
+    if course_types is not None:
+        valid_types = {
+            choice[0] for choice in StudyProgramCourse.CourseType.choices
+        }
+        requested_types = {
+            value.strip().upper()
+            for value in course_types.split(",")
+            if value.strip()
+        }
+        if not requested_types or not requested_types.issubset(valid_types):
+            return courses.none()
+        if program_filtered:
+            courses = courses.filter(annotated_course_type__in=requested_types)
+        else:
+            courses = courses.filter(
+                study_program_courses__is_active=True,
+                study_program_courses__course_type__in=requested_types,
+            )
 
     return courses

@@ -3,6 +3,7 @@ import math
 
 from django.urls import reverse
 import requests
+from django.db import transaction
 from rest_framework.decorators import api_view
 from rest_framework import status
 
@@ -28,7 +29,8 @@ from .utils import (
     delete_semester_gpa,
     update_semester_gpa,
     update_cumulative_gpa,
-    get_fasilkom_courses,
+    get_courses_by_program_term,
+    is_course_catalog_available,
     add_course_to_semester,
     validate_params,
     delete_course_to_semester,
@@ -120,19 +122,22 @@ def gpa_calculator(request):
 
     if request.method == "GET":
         user_gpas = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa)
-
-        courses = get_fasilkom_courses(str(user.study_program))
-        fasilkom_courses = []
-        for course_term in courses:
-            fasilkom_courses.append(
-                CourseForSemesterSerializer(course_term, many=True).data
-            )
+        courses_by_term = get_courses_by_program_term(user.org_code)
+        maximum_term = max([8] + list(courses_by_term.keys()))
+        program_courses = [
+            CourseForSemesterSerializer(
+                courses_by_term.get(term, []), many=True
+            ).data
+            for term in range(0, maximum_term + 1)
+        ]
+        catalog_available = is_course_catalog_available(user.org_code)
 
         return response(
             data={
                 "all_semester_gpa": UserGPASerializer(user_gpas, many=True).data,
                 "cumulative_gpa": UserCumulativeGPASerializer(user_cumulative_gpa).data,
-                "courses": fasilkom_courses,
+                "courses": program_courses,
+                "course_catalog_available": catalog_available,
             }
         )
 
@@ -151,8 +156,18 @@ def gpa_calculator(request):
         if is_valid != None:
             return is_valid
 
-        is_auto_fill = request.query_params.get("is_auto_fill")
-        courses = get_fasilkom_courses(str(user.study_program))
+        is_auto_fill = (
+            request.query_params.get("is_auto_fill", "").strip().lower() == "true"
+        )
+        courses_by_term = get_courses_by_program_term(user.org_code)
+        if is_auto_fill and not is_course_catalog_available(user.org_code):
+            return response(
+                error={
+                    "code": "COURSE_CATALOG_UNAVAILABLE",
+                    "message": "Course catalog has not been synchronized for this study program.",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
 
         given_semesters = []
         try:
@@ -168,7 +183,7 @@ def gpa_calculator(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        given_semesters = list(set(given_semesters))  # remove duplicate given_semester
+        given_semesters = list(dict.fromkeys(given_semesters))
 
         """
 		When handling a semester (given_semester), theres 2 possible error:
@@ -183,6 +198,11 @@ def gpa_calculator(request):
         duplicated_semester = []
         valid_semester = []
         for given_semester in given_semesters:
+            if not isinstance(given_semester, str):
+                return response(
+                    error="given_semesters should contain strings",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if len(given_semester) > 20:
                 character_limit_exceeded_semester.append(given_semester)
                 continue
@@ -197,38 +217,31 @@ def gpa_calculator(request):
             valid_semester.append(given_semester)
 
         user_gpas = []
-        for given_semester in valid_semester:
-            semester = UserGPA.objects.create(
-                userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester
-            )
+        with transaction.atomic():
+            for given_semester in valid_semester:
+                semester = UserGPA.objects.create(
+                    userCumulativeGPA=user_cumulative_gpa,
+                    given_semester=given_semester,
+                )
 
-            if is_auto_fill != None and str(given_semester).isnumeric():
-                try:
-                    given_semester_int = int(given_semester)
-                    list_courses = courses[given_semester_int]
-                    for course in list_courses:
-                        calculator = Calculator.objects.create(user=user, course=course)
-
-                        # Update gpa (ip) and cumulative gpa (ipk)
+                if is_auto_fill and given_semester.isnumeric():
+                    for course in courses_by_term.get(int(given_semester), []):
+                        calculator = Calculator.objects.create(
+                            user=user, course=course
+                        )
                         add_course_to_semester(semester=semester, sks=course.sks)
                         add_semester_gpa(
                             user_cumulative_gpa=user_cumulative_gpa,
                             total_sks=course.sks,
                             semester_gpa=0,
                         )
-
-                        course_semester = CourseSemester.objects.create(
-                            course=course, semester=semester, calculator=calculator
+                        CourseSemester.objects.create(
+                            course=course,
+                            semester=semester,
+                            calculator=calculator,
                         )
-                except Exception as e:
-                    return response(
-                        error=str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
 
-            semester = UserGPA.objects.filter(
-                userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester
-            ).first()
-            user_gpas.append(semester)
+                user_gpas.append(semester)
 
         return response(
             data=UserGPASerializer(user_gpas, many=True).data,

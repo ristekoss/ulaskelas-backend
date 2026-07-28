@@ -16,8 +16,8 @@ from .models import (
     UserCumulativeGPA,
     UserGPA,
     ScoreSubcomponent,
+    StudyProgramCourse,
 )
-from .fasilkom_courses import IK_COURSES, SI_COURSES
 
 
 def normalize_score(score):
@@ -227,19 +227,29 @@ def get_course_by_code(course_code):
     return Course.objects.filter(code=course_code).first()
 
 
-def get_fasilkom_courses(study_program):
-    courses_by_program = IK_COURSES if "Ilmu Komputer" in study_program else SI_COURSES
-    study_program_courses = [[]]
-    for term in range(1, 9):
-        courses_in_term = courses_by_program[term]
-        term_course = []
-        for course_code in courses_in_term:
-            course = get_course_by_code(course_code)
-            if course != None:
-                term_course.append(course)
+def get_courses_by_program_term(org_code):
+    """Return active courses grouped by their program-specific curriculum term."""
+    mappings = (
+        StudyProgramCourse.objects.filter(
+            study_program_id=org_code,
+            study_program__is_supported=True,
+            is_active=True,
+        )
+        .select_related("course")
+        .order_by("program_term", "course__name")
+    )
+    courses_by_term = {}
+    for mapping in mappings:
+        courses_by_term.setdefault(mapping.program_term, []).append(mapping.course)
+    return courses_by_term
 
-        study_program_courses.append(term_course)
-    return study_program_courses
+
+def is_course_catalog_available(org_code):
+    return StudyProgramCourse.objects.filter(
+        study_program_id=org_code,
+        study_program__is_supported=True,
+        is_active=True,
+    ).exists()
 
 
 def get_score(score: float) -> float:
