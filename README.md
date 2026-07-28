@@ -127,6 +127,32 @@ Run the all-program command weekly from the deployment scheduler. A failed
 program is reported at the end without preventing the remaining programs from
 being synchronized.
 
+### Import an active SIAK IRS locally
+
+This proof of concept runs only as a local management command. Install the
+temporary browser used by Playwright:
+
+```bash
+pip install -r requirements-siak.txt
+python -m playwright install chromium
+```
+
+Run a preview for a local Teman Kuliah profile and calculator semester:
+
+```bash
+python manage.py import_siak_irs \
+    --username example.username \
+    --semester 1 \
+    --dry-run
+```
+
+The command opens an isolated browser. Complete the SIAK challenge and login,
+open the active IRS page, then return to the terminal. Remove `--dry-run` to
+preview and confirm the database import in the same browser session. Existing
+calculator courses are skipped, and SIAK codes missing from the local catalog
+are reported. The command does not save SIAK credentials, cookies, page HTML,
+or browser storage.
+
 
 -------
 
