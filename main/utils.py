@@ -117,7 +117,16 @@ def get_paged_obj(objs, page, _sort_by_id=True):
     if _sort_by_id:
         objs = objs.order_by("id")
     paginator = Paginator(objs, 10)
-    objs = paginator.get_page(page)
+    try:
+        page_number = int(page)
+    except (ValueError, TypeError):
+        page_number = 1
+
+    if page_number > paginator.num_pages:
+        objs = []
+    else:
+        objs = paginator.get_page(page_number)
+
     return objs, paginator.num_pages
 
 
