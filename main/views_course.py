@@ -24,6 +24,16 @@ def _display_name(value):
     return (value or "").split("(", 1)[0].strip()
 
 
+def _active_study_program_courses_prefetch():
+    return Prefetch(
+        "study_program_courses",
+        queryset=StudyProgramCourse.objects.filter(
+            is_active=True, study_program__is_supported=True
+        ).select_related("study_program"),
+        to_attr="active_study_program_courses",
+    )
+
+
 def get_major_choices():
     """Return supported programs with stable org-code identifiers."""
     orgs = get_config("kd_org") or {}
@@ -76,7 +86,9 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
     search_fields = ["name", "description", "code"]
 
     def get_queryset(self):
-        return Course.objects.annotate(review_count=Count("reviews"))
+        return Course.objects.annotate(review_count=Count("reviews")).prefetch_related(
+            _active_study_program_courses_prefetch()
+        )
 
     def list(self, request, *args, **kwargs):
         courses = self.get_queryset()
@@ -142,7 +154,8 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
                             queryset=ReviewTag.objects.select_related("tag"),
                         )
                     ),
-                )
+                ),
+                _active_study_program_courses_prefetch(),
             )
             .get()
         )

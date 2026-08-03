@@ -113,6 +113,9 @@ class MajorsEndpointTest(APITestCase):
         self.assertEqual([course["code"] for course in courses], ["PZ000001"])
         self.assertEqual(courses[0]["program_term"], 2)
         self.assertEqual(courses[0]["course_type"], "MANDATORY")
+        self.assertEqual(
+            courses[0]["faculties"], [{"id": "01", "name": "Fakultas A"}]
+        )
 
     @patch("main.views_course.get_config", return_value=PROGRAM_CONFIG)
     def test_unknown_or_unsupported_major_returns_bad_request(self, _get_config):
@@ -120,3 +123,62 @@ class MajorsEndpointTest(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "MAJOR_NOT_SUPPORTED")
+
+    def test_course_detail_returns_unique_faculties_from_active_programs(self):
+        course = Course.objects.create(
+            code="UI000001",
+            curriculum="2024",
+            name="Cross-faculty Course",
+            sks=3,
+            term=1,
+        )
+        programs = [
+            StudyProgram.objects.create(
+                org_code="01.00.12.01",
+                faculty="ILMU KOMPUTER",
+                study_program="Ilmu Komputer",
+                educational_program="S1 Reguler",
+            ),
+            StudyProgram.objects.create(
+                org_code="06.00.12.01",
+                faculty="ILMU KOMPUTER",
+                study_program="Sistem Informasi",
+                educational_program="S1 Reguler",
+            ),
+            StudyProgram.objects.create(
+                org_code="01.00.13.01",
+                faculty="ILMU KEPERAWATAN",
+                study_program="Ilmu Keperawatan",
+                educational_program="S1 Reguler",
+            ),
+        ]
+        for program in programs:
+            StudyProgramCourse.objects.create(
+                study_program=program,
+                course=course,
+                program_term=1,
+            )
+
+        inactive_program = StudyProgram.objects.create(
+            org_code="01.00.10.01",
+            faculty="KESEHATAN MASYARAKAT",
+            study_program="Kesehatan Masyarakat",
+            educational_program="S1 Reguler",
+        )
+        StudyProgramCourse.objects.create(
+            study_program=inactive_program,
+            course=course,
+            program_term=1,
+            is_active=False,
+        )
+
+        response = self.client.get("/api/courses/{}/".format(course.id))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["data"]["course"]["faculties"],
+            [
+                {"id": "13", "name": "ILMU KEPERAWATAN"},
+                {"id": "12", "name": "ILMU KOMPUTER"},
+            ],
+        )
