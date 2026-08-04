@@ -379,6 +379,8 @@ class CalculatorSerializer(serializers.ModelSerializer):
     course_id = serializers.SerializerMethodField("get_course_id")
     course_name = serializers.SerializerMethodField("get_course_name")
     course_sks = serializers.SerializerMethodField("get_course_sks")
+    course_code = serializers.SerializerMethodField("get_course_code")
+    course_code_desc = serializers.SerializerMethodField("get_course_code_desc")
 
     class Meta:
         model = Calculator
@@ -388,6 +390,8 @@ class CalculatorSerializer(serializers.ModelSerializer):
             "course_id",
             "course_name",
             "course_sks",
+            "course_code",
+            "course_code_desc",
             "total_score",
             "total_percentage",
         )
@@ -403,6 +407,16 @@ class CalculatorSerializer(serializers.ModelSerializer):
 
     def get_course_sks(self, obj):
         return obj.course.sks
+
+    def get_course_code(self, obj):
+        return obj.course.code
+
+    def get_course_code_desc(self, obj):
+        course_prefixes = get_config("course_prefixes")
+        code = obj.course.code[:4]
+        if code in course_prefixes:
+            return course_prefixes[code]
+        return None
 
 
 class ScoreComponentSerializer(serializers.ModelSerializer):
