@@ -35,14 +35,18 @@ def refresh_courses(request):
     """
     start = datetime.now()
     profile = request.user.profile_set.get()
-    courseApi.update_courses(profile.org_code)
+    try:
+        sync_result = courseApi.update_courses(profile.org_code)
+    except courseApi.CourseSyncError as exc:
+        logger.exception("Course update failed for org_code=%s", profile.org_code)
+        return Response({"message": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
 
     finish = datetime.now()
 
     latency = (finish - start).seconds
     time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     message = "Course updated succeed on %s, elapsed time: %s seconds" % (time, latency)
-    return Response({"message": message})
+    return Response({"message": message, "sync": sync_result})
 
 
 @api_view(["GET"])
@@ -263,4 +267,3 @@ def update_leaderboard(request):
         latency,
     )
     return Response({"message": message})
-
