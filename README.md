@@ -127,6 +127,35 @@ Run the all-program command weekly from the deployment scheduler. A failed
 program is reported at the end without preventing the remaining programs from
 being synchronized.
 
+### Import the latest SIAK academic-history period locally
+
+This proof of concept runs only as a local management command. Install the
+temporary browser used by Playwright:
+
+```bash
+pip install -r requirements-siak.txt
+python -m playwright install chromium
+```
+
+Run a preview for a local Teman Kuliah profile and calculator semester:
+
+```bash
+python manage.py import_siak_irs \
+    --username example.username \
+    --semester 1 \
+    --dry-run
+```
+
+The command opens an isolated browser at the SIAK academic-history page.
+Complete the SIAK challenge and login; no terminal confirmation is needed.
+After authentication, the command returns to the history page automatically and
+previews only the latest academic period that contains courses. Remove
+`--dry-run` to confirm the database import in the same browser session.
+Existing calculator courses are skipped, and SIAK codes missing from the local
+catalog are reported. The command does not save SIAK credentials, cookies, page
+HTML, or browser storage. Use `--login-timeout` to override the default
+five-minute login window.
+
 
 -------
 
