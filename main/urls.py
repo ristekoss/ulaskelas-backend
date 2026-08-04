@@ -4,6 +4,7 @@ from django.urls import path, include
 
 from main.views_tanyateman import jawab_teman, tanya_teman
 from .views_gpa_calculator import (
+    calculator_status,
     course_semester,
     gpa_calculator,
     gpa_calculator_with_semester,
@@ -14,13 +15,14 @@ from .views_gpa_calculator import (
 from .views_calculator import calculator, score_component
 from .views import like, tag, bookmark, account, leaderboard
 from .views_review import ds_review, review
-from .views_course import CourseViewSet
+from .views_course import CourseViewSet, majors
 
 router = routers.SimpleRouter()
 router.register("courses", CourseViewSet, basename="courses")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("majors", majors, name="majors"),
     path("bookmarks", bookmark, name="bookmarks"),
     path("reviews", review, name="reviews"),
     path("ds-reviews", ds_review, name="ds-reviews"),
@@ -31,6 +33,7 @@ urlpatterns = [
     path("calculator", calculator, name="calculator"),
     path("score-component", score_component, name="score-component"),
     path("calculator-gpa", gpa_calculator, name="gpa-calculator"),
+    path("calculator-status", calculator_status, name="calculator-status"),
     path(
         "calculator-gpa/<str:given_semester>",
         gpa_calculator_with_semester,

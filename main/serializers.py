@@ -56,6 +56,9 @@ class CourseSerializer(serializers.ModelSerializer):
     rating_beneficial = serializers.SerializerMethodField("get_rating_beneficial")
     rating_recommended = serializers.SerializerMethodField("get_rating_recommended")
     rating_average = serializers.SerializerMethodField("get_rating_average")
+    program_term = serializers.SerializerMethodField("get_program_term")
+    course_type = serializers.SerializerMethodField("get_course_type")
+    faculties = serializers.SerializerMethodField("get_faculties")
 
     def get_code_desc(self, obj):
         course_prefixes = get_config("course_prefixes")
@@ -63,6 +66,37 @@ class CourseSerializer(serializers.ModelSerializer):
         if code in course_prefixes:
             return course_prefixes[code]
         return None
+
+    def get_program_term(self, obj):
+        return getattr(obj, "program_term", None)
+
+    def get_course_type(self, obj):
+        return getattr(obj, "annotated_course_type", "UNKNOWN")
+
+    def get_faculties(self, obj):
+        mappings = getattr(obj, "active_study_program_courses", None)
+        if mappings is None:
+            mappings = obj.study_program_courses.filter(
+                is_active=True, study_program__is_supported=True
+            ).select_related("study_program")
+
+        faculties = {}
+        for mapping in mappings:
+            study_program = mapping.study_program
+            org_code_parts = study_program.org_code.split(".")
+            faculty_id = (
+                org_code_parts[2]
+                if len(org_code_parts) >= 3
+                else study_program.org_code
+            )
+            faculties.setdefault(
+                faculty_id,
+                {"id": faculty_id, "name": study_program.faculty},
+            )
+
+        return sorted(
+            faculties.values(), key=lambda faculty: faculty["name"].casefold()
+        )
 
     def get_review_count(self, obj):
         return (
@@ -160,6 +194,9 @@ class CourseSerializer(serializers.ModelSerializer):
                 "rating_beneficial",
                 "rating_recommended",
                 "rating_average",
+                "program_term",
+                "course_type",
+                "faculties",
             ]
         )
 
@@ -381,10 +418,13 @@ class ScoreComponentSerializer(serializers.ModelSerializer):
 
     def get_score(self, obj):
         all_subcomponent = ScoreSubcomponent.objects.filter(score_component=obj)
+        if not all_subcomponent.exists():
+            return obj.score
+
         is_all_null = all(
             subcomponent.subcomponent_score is None for subcomponent in all_subcomponent
         )
-        score_rendered = -1 if is_all_null else obj.score
+        score_rendered = None if is_all_null else obj.score
         return score_rendered
 
 

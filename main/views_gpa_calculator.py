@@ -3,6 +3,7 @@ import math
 
 from django.urls import reverse
 import requests
+from django.db import transaction
 from rest_framework.decorators import api_view
 from rest_framework import status
 
@@ -28,12 +29,17 @@ from .utils import (
     delete_semester_gpa,
     update_semester_gpa,
     update_cumulative_gpa,
-    get_fasilkom_courses,
+    get_courses_by_program_term,
+    is_course_catalog_available,
     add_course_to_semester,
     validate_params,
     delete_course_to_semester,
     get_max_possible_score,
     delete_semester,
+    get_calculator_status,
+    get_calculator_progress,
+    calculate_average,
+    normalize_score,
 )
 from .models import (
     Calculator,
@@ -50,6 +56,65 @@ from django.db.models import F
 logger = logging.getLogger(__name__)
 
 
+@api_view(["GET"])
+def calculator_status(request):
+    user = Profile.objects.get(username=str(request.user))
+    user_cumulative_gpa = check_notexist_and_create_user_cumulative_gpa(user)
+    semesters = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa)
+    requested_semester = request.query_params.get("smt")
+
+    if requested_semester is not None:
+        selected_semester = semesters.filter(
+            given_semester=requested_semester
+        ).first()
+        if selected_semester is None:
+            return response(
+                error="There is no object with given_semester={}".format(
+                    requested_semester
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+    else:
+        selected_semester = None
+
+    numeric_semesters = [
+        semester
+        for semester in semesters
+        if str(semester.given_semester).isnumeric()
+    ]
+    if selected_semester is None and not numeric_semesters:
+        return response(data={"semester": None, "courses": []})
+
+    current_semester = selected_semester or max(
+        numeric_semesters, key=lambda semester: int(semester.given_semester)
+    )
+    course_semesters = CourseSemester.objects.filter(
+        semester=current_semester
+    ).select_related("course", "calculator")
+
+    courses = []
+    for course_semester in course_semesters:
+        calculator = course_semester.calculator
+        courses.append(
+            {
+                "course_id": course_semester.course.id,
+                "course_name": course_semester.course.name,
+                "course_sks": course_semester.course.sks,
+                "status": get_calculator_status(calculator)
+                if calculator is not None
+                else {
+                    "code": "WEIGHT_INCOMPLETE",
+                    "label": "Bobot belum terisi",
+                },
+                **get_calculator_progress(calculator),
+            }
+        )
+
+    return response(
+        data={"semester": current_semester.given_semester, "courses": courses}
+    )
+
+
 @api_view(["GET", "DELETE", "POST"])
 def gpa_calculator(request):
     user = Profile.objects.get(username=str(request.user))
@@ -57,19 +122,22 @@ def gpa_calculator(request):
 
     if request.method == "GET":
         user_gpas = UserGPA.objects.filter(userCumulativeGPA=user_cumulative_gpa)
-
-        courses = get_fasilkom_courses(str(user.study_program))
-        fasilkom_courses = []
-        for course_term in courses:
-            fasilkom_courses.append(
-                CourseForSemesterSerializer(course_term, many=True).data
-            )
+        courses_by_term = get_courses_by_program_term(user.org_code)
+        maximum_term = max([8] + list(courses_by_term.keys()))
+        program_courses = [
+            CourseForSemesterSerializer(
+                courses_by_term.get(term, []), many=True
+            ).data
+            for term in range(0, maximum_term + 1)
+        ]
+        catalog_available = is_course_catalog_available(user.org_code)
 
         return response(
             data={
                 "all_semester_gpa": UserGPASerializer(user_gpas, many=True).data,
                 "cumulative_gpa": UserCumulativeGPASerializer(user_cumulative_gpa).data,
-                "courses": fasilkom_courses,
+                "courses": program_courses,
+                "course_catalog_available": catalog_available,
             }
         )
 
@@ -88,8 +156,18 @@ def gpa_calculator(request):
         if is_valid != None:
             return is_valid
 
-        is_auto_fill = request.query_params.get("is_auto_fill")
-        courses = get_fasilkom_courses(str(user.study_program))
+        is_auto_fill = (
+            request.query_params.get("is_auto_fill", "").strip().lower() == "true"
+        )
+        courses_by_term = get_courses_by_program_term(user.org_code)
+        if is_auto_fill and not is_course_catalog_available(user.org_code):
+            return response(
+                error={
+                    "code": "COURSE_CATALOG_UNAVAILABLE",
+                    "message": "Course catalog has not been synchronized for this study program.",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
 
         given_semesters = []
         try:
@@ -105,7 +183,7 @@ def gpa_calculator(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        given_semesters = list(set(given_semesters))  # remove duplicate given_semester
+        given_semesters = list(dict.fromkeys(given_semesters))
 
         """
 		When handling a semester (given_semester), theres 2 possible error:
@@ -120,6 +198,11 @@ def gpa_calculator(request):
         duplicated_semester = []
         valid_semester = []
         for given_semester in given_semesters:
+            if not isinstance(given_semester, str):
+                return response(
+                    error="given_semesters should contain strings",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if len(given_semester) > 20:
                 character_limit_exceeded_semester.append(given_semester)
                 continue
@@ -134,38 +217,31 @@ def gpa_calculator(request):
             valid_semester.append(given_semester)
 
         user_gpas = []
-        for given_semester in valid_semester:
-            semester = UserGPA.objects.create(
-                userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester
-            )
+        with transaction.atomic():
+            for given_semester in valid_semester:
+                semester = UserGPA.objects.create(
+                    userCumulativeGPA=user_cumulative_gpa,
+                    given_semester=given_semester,
+                )
 
-            if is_auto_fill != None and str(given_semester).isnumeric():
-                try:
-                    given_semester_int = int(given_semester)
-                    list_courses = courses[given_semester_int]
-                    for course in list_courses:
-                        calculator = Calculator.objects.create(user=user, course=course)
-
-                        # Update gpa (ip) and cumulative gpa (ipk)
+                if is_auto_fill and given_semester.isnumeric():
+                    for course in courses_by_term.get(int(given_semester), []):
+                        calculator = Calculator.objects.create(
+                            user=user, course=course
+                        )
                         add_course_to_semester(semester=semester, sks=course.sks)
                         add_semester_gpa(
                             user_cumulative_gpa=user_cumulative_gpa,
                             total_sks=course.sks,
                             semester_gpa=0,
                         )
-
-                        course_semester = CourseSemester.objects.create(
-                            course=course, semester=semester, calculator=calculator
+                        CourseSemester.objects.create(
+                            course=course,
+                            semester=semester,
+                            calculator=calculator,
                         )
-                except Exception as e:
-                    return response(
-                        error=str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                    )
 
-            semester = UserGPA.objects.filter(
-                userCumulativeGPA=user_cumulative_gpa, given_semester=given_semester
-            ).first()
-            user_gpas.append(semester)
+                user_gpas.append(semester)
 
         return response(
             data=UserGPASerializer(user_gpas, many=True).data,
@@ -409,7 +485,9 @@ def course_component(request):
         calculator_id = request.data.get("calculator_id")
         name = request.data.get("name")
         weight = request.data.get("weight")
-        score = request.data.get("score")
+        score = normalize_score(request.data.get("score"))
+        if score is None:
+            score = 0
 
         calculator = Calculator.objects.filter(pk=calculator_id).first()
         if calculator is None:
@@ -574,6 +652,7 @@ def course_subcomponent(request):
                 error="frequency should equal to the length of scores!",
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        scores = [normalize_score(score) for score in scores]
 
         calculator = Calculator.objects.filter(pk=calculator_id).first()
         if calculator is None:
@@ -605,14 +684,14 @@ def course_subcomponent(request):
                 subcomponent_number=index + 1,
                 subcomponent_score=score,
             )
-            subcomponent_contribution = 0 if score is None else score / frequency
-            component_total_score += subcomponent_contribution
+        component_total_score = calculate_average(scores)
+        stored_component_score = component_total_score or 0
 
         # Update score of score component
-        score_component.score = component_total_score
+        score_component.score = stored_component_score
         score_component.save()
 
-        calculator.total_score += component_total_score * weight / 100
+        calculator.total_score += stored_component_score * weight / 100
         calculator.total_percentage += weight
         calculator.save()
 
@@ -626,7 +705,7 @@ def course_subcomponent(request):
         )
 
         score_component_value = ScoreComponent.objects.filter(
-            calculator=calculator, name=name, weight=weight, score=component_total_score
+            calculator=calculator, name=name, weight=weight, score=stored_component_score
         ).first()
         return response(
             data=ScoreComponentSerializer(score_component_value).data,
@@ -687,7 +766,7 @@ def course_subcomponent(request):
         previous_frequency = ScoreSubcomponent.objects.filter(
             score_component=score_component
         ).count()
-        component_total_score = 0
+        scores = [normalize_score(score) for score in scores]
 
         for index in range(1, frequency + 1):
             if index <= previous_frequency:  # Update previous subcomponent
@@ -702,10 +781,8 @@ def course_subcomponent(request):
                     subcomponent_number=index,
                     subcomponent_score=scores[index - 1],
                 )
-            subcomponent_contribution = (
-                0 if scores[index - 1] is None else scores[index - 1] / frequency
-            )
-            component_total_score += subcomponent_contribution
+        component_total_score = calculate_average(scores)
+        stored_component_score = component_total_score or 0
 
         for index in range(frequency + 1, previous_frequency + 1):
             current_score_subcomponent = ScoreSubcomponent.objects.filter(
@@ -716,10 +793,10 @@ def course_subcomponent(request):
         # Update Score Component
         score_component.name = name
         score_component.weight = weight
-        score_component.score = component_total_score
+        score_component.score = stored_component_score
         score_component.save()
 
-        calculator.total_score += score_component.score * score_component.weight / 100
+        calculator.total_score += stored_component_score * score_component.weight / 100
         calculator.total_percentage += score_component.weight
         calculator.save()
 
@@ -733,10 +810,9 @@ def course_subcomponent(request):
         )
 
         score_component_value = ScoreComponent.objects.filter(
-            calculator=calculator, name=name, weight=weight, score=component_total_score
+            calculator=calculator, name=name, weight=weight, score=stored_component_score
         ).first()
         return response(
             data=ScoreComponentSerializer(score_component_value).data,
             status=status.HTTP_201_CREATED,
         )
-

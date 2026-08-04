@@ -15,10 +15,14 @@ from .models import (
     AnswerImageAdmin,
     UserCumulativeGPA,
     UserGPA,
+    StudyProgram,
+    StudyProgramCourse,
 )
 
 # Register your models here.
 admin.site.register(Course)
+admin.site.register(StudyProgram)
+admin.site.register(StudyProgramCourse)
 admin.site.register(Tag)
 admin.site.register(Profile)
 
