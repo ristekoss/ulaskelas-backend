@@ -15,13 +15,14 @@ from .views_gpa_calculator import (
 from .views_calculator import calculator, score_component
 from .views import like, tag, bookmark, account, leaderboard
 from .views_review import ds_review, review
-from .views_course import CourseViewSet
+from .views_course import CourseViewSet, majors
 
 router = routers.SimpleRouter()
 router.register("courses", CourseViewSet, basename="courses")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("majors", majors, name="majors"),
     path("bookmarks", bookmark, name="bookmarks"),
     path("reviews", review, name="reviews"),
     path("ds-reviews", ds_review, name="ds-reviews"),

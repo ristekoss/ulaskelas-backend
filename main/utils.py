@@ -16,8 +16,22 @@ from .models import (
     UserCumulativeGPA,
     UserGPA,
     ScoreSubcomponent,
+    StudyProgramCourse,
 )
-from .fasilkom_courses import IK_COURSES, SI_COURSES
+
+
+def normalize_score(score):
+    """Normalize empty score inputs to the null value used by the database."""
+    return None if score is None or score == "" else score
+
+
+def calculate_average(scores):
+    """Average only scores that have been filled in."""
+    filled_scores = [normalize_score(score) for score in scores]
+    filled_scores = [score for score in filled_scores if score is not None]
+    if not filled_scores:
+        return None
+    return sum(filled_scores) / len(filled_scores)
 
 
 def process_sso_profile(sso_profile):
@@ -103,7 +117,16 @@ def get_paged_obj(objs, page, _sort_by_id=True):
     if _sort_by_id:
         objs = objs.order_by("id")
     paginator = Paginator(objs, 10)
-    objs = paginator.get_page(page)
+    try:
+        page_number = int(page)
+    except (ValueError, TypeError):
+        page_number = 1
+
+    if page_number > paginator.num_pages:
+        objs = []
+    else:
+        objs = paginator.get_page(page_number)
+
     return objs, paginator.num_pages
 
 
@@ -213,19 +236,29 @@ def get_course_by_code(course_code):
     return Course.objects.filter(code=course_code).first()
 
 
-def get_fasilkom_courses(study_program):
-    courses_by_program = IK_COURSES if "Ilmu Komputer" in study_program else SI_COURSES
-    study_program_courses = [[]]
-    for term in range(1, 9):
-        courses_in_term = courses_by_program[term]
-        term_course = []
-        for course_code in courses_in_term:
-            course = get_course_by_code(course_code)
-            if course != None:
-                term_course.append(course)
+def get_courses_by_program_term(org_code):
+    """Return active courses grouped by their program-specific curriculum term."""
+    mappings = (
+        StudyProgramCourse.objects.filter(
+            study_program_id=org_code,
+            study_program__is_supported=True,
+            is_active=True,
+        )
+        .select_related("course")
+        .order_by("program_term", "course__name")
+    )
+    courses_by_term = {}
+    for mapping in mappings:
+        courses_by_term.setdefault(mapping.program_term, []).append(mapping.course)
+    return courses_by_term
 
-        study_program_courses.append(term_course)
-    return study_program_courses
+
+def is_course_catalog_available(org_code):
+    return StudyProgramCourse.objects.filter(
+        study_program_id=org_code,
+        study_program__is_supported=True,
+        is_active=True,
+    ).exists()
 
 
 def get_score(score: float) -> float:
