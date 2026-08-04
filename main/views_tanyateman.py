@@ -36,7 +36,6 @@ from .utils import (
     delete_semester_gpa,
     update_semester_gpa,
     update_cumulative_gpa,
-    get_fasilkom_courses,
     add_course_to_semester,
     validate_params,
     delete_course_to_semester,
