@@ -30,6 +30,7 @@ class CalculatorSerializerTest(SimpleTestCase):
 
         self.assertEqual(data["course_code"], "CSGE601020")
         self.assertEqual(data["course_code_desc"], "Computer Science - General")
+        self.assertNotIn("faculties", data)
         get_config.assert_called_once_with("course_prefixes")
 
     @patch("main.serializers.get_config", return_value={})
