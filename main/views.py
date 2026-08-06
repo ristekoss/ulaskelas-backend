@@ -37,6 +37,17 @@ def refresh_courses(request):
     profile = request.user.profile_set.get()
     try:
         sync_result = courseApi.update_courses(profile.org_code)
+    except courseApi.CourseCatalogUnavailable as exc:
+        logger.warning("Course catalog unavailable for org_code=%s", profile.org_code)
+        return Response(
+            {
+                "error": {
+                    "code": "COURSE_CATALOG_UNAVAILABLE",
+                    "message": str(exc),
+                }
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
     except courseApi.CourseSyncError as exc:
         logger.exception("Course update failed for org_code=%s", profile.org_code)
         return Response({"message": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
