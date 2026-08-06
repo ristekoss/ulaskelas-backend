@@ -125,7 +125,25 @@ python manage.py sync_courses --org-code 01.00.12.01
 
 Run the all-program command weekly from the deployment scheduler. A failed
 program is reported at the end without preventing the remaining programs from
-being synchronized.
+being synchronized. Programs that have no SunJad catalog yet are reported as
+unavailable without making the command fail.
+
+Before the first sync after deploying course-code validation, audit invalid
+legacy courses with the dry-run cleanup command:
+
+```bash
+python manage.py cleanup_invalid_course_codes
+```
+
+After reviewing the output and taking a database backup, apply the cleanup:
+
+```bash
+python manage.py cleanup_invalid_course_codes --apply
+```
+
+The cleanup deactivates invalid catalog mappings. Invalid courses are deleted
+only when they have no review, bookmark, calculator, course-semester, or
+TanyaTeman references; referenced courses are retained for manual remediation.
 
 ### Import the latest SIAK academic-history period locally
 

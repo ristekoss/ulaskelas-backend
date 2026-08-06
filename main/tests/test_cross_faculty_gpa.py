@@ -1,15 +1,20 @@
+from unittest.mock import patch
+
 from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from main.models import (
+    Calculator,
     Course,
     CourseSemester,
     Profile,
     StudyProgram,
     StudyProgramCourse,
+    UserCumulativeGPA,
     UserGPA,
 )
+from main.serializers import SemesterWithCourseSerializer
 
 
 class CrossFacultyGPATest(APITestCase):
@@ -101,3 +106,50 @@ class CrossFacultyGPATest(APITestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertFalse(CourseSemester.objects.exists())
+
+    @patch("main.serializers.get_config", return_value={})
+    def test_course_semester_returns_course_faculties(self, _get_config):
+        course = self.create_catalog()
+        unmapped_course = Course.objects.create(
+            code="ZZ000001",
+            curriculum="2024",
+            name="Unmapped Course",
+            sks=2,
+            term=1,
+        )
+        cumulative_gpa = UserCumulativeGPA.objects.create(user=self.profile)
+        semester = UserGPA.objects.create(
+            userCumulativeGPA=cumulative_gpa,
+            given_semester="1",
+        )
+        calculator = Calculator.objects.create(user=self.profile, course=course)
+        unmapped_calculator = Calculator.objects.create(
+            user=self.profile,
+            course=unmapped_course,
+        )
+        CourseSemester.objects.create(
+            semester=semester,
+            course=course,
+            calculator=calculator,
+        )
+        CourseSemester.objects.create(
+            semester=semester,
+            course=unmapped_course,
+            calculator=unmapped_calculator,
+        )
+
+        with self.assertNumQueries(2):
+            SemesterWithCourseSerializer(semester).data
+
+        response = self.client.get("/api/v1/course-semester?given_semester=1")
+
+        self.assertEqual(response.status_code, 200)
+        courses = {
+            item["course_id"]: item
+            for item in response.data["data"]["courses_calculator"]
+        }
+        self.assertEqual(
+            courses[course.id]["faculties"],
+            [{"id": "01", "name": "Fakultas A"}],
+        )
+        self.assertEqual(courses[unmapped_course.id]["faculties"], [])

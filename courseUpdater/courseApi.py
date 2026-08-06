@@ -17,10 +17,36 @@ COURSE_TYPE_ALIASES = {
     "ELECTIVE": StudyProgramCourse.CourseType.ELECTIVE,
     "PILIHAN": StudyProgramCourse.CourseType.ELECTIVE,
 }
+INVALID_COURSE_CODE_SENTINELS = {"none", "null", "n/a"}
 
 
 class CourseSyncError(Exception):
     """Raised when a SunJad response cannot safely update the local catalog."""
+
+
+class CourseCatalogUnavailable(CourseSyncError):
+    """Raised when SunJad has no catalog for a configured study program."""
+
+
+def normalize_course_code(raw_code):
+    """Return a usable course code or reject known invalid SunJad values."""
+    if not isinstance(raw_code, str):
+        raise ValueError("course code is missing or is not a string")
+
+    code = raw_code.strip()
+    if not code:
+        raise ValueError("course code is empty")
+    if code.casefold() in INVALID_COURSE_CODE_SENTINELS:
+        raise ValueError("course code is an invalid sentinel: {!r}".format(raw_code))
+    return code
+
+
+def is_invalid_course_code(raw_code):
+    try:
+        normalize_course_code(raw_code)
+    except ValueError:
+        return True
+    return False
 
 
 def is_supported_educational_program(value):
@@ -75,6 +101,8 @@ def _fetch_courses_json(url):
     except (requests.RequestException, ValueError) as exc:
         raise CourseSyncError("Failed to fetch SunJad courses") from exc
 
+    if payload == {}:
+        raise CourseCatalogUnavailable("SunJad course catalog is unavailable")
     if not isinstance(payload, dict) or not isinstance(payload.get("courses"), list):
         raise CourseSyncError("Invalid SunJad courses response")
     return payload
@@ -136,9 +164,7 @@ def _apply_courses_payload(study_program, payload):
 
 
 def _upsert_course(course_json):
-    code = str(course_json["code"]).strip()
-    if not code:
-        raise ValueError("course code is empty")
+    code = normalize_course_code(course_json["code"])
 
     curriculum = str(course_json.get("curriculum") or "")
     course = Course.objects.filter(code=code).order_by("-curriculum", "id").first()

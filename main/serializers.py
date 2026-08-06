@@ -1,7 +1,7 @@
 from live_config.views import get_config
 from main.utils import get_profile_term
 from rest_framework import serializers
-from django.db.models import Avg
+from django.db.models import Avg, Prefetch
 
 from .models import (
     Answer,
@@ -17,6 +17,7 @@ from .models import (
     UserGPA,
     CourseSemester,
     ScoreSubcomponent,
+    StudyProgramCourse,
     get_attachment_presigned_url,
 )
 
@@ -38,6 +39,30 @@ from .models import (
 #     class Meta:
 #         model = Course
 #         fields = ['name', 'category']
+
+
+def serialize_course_faculties(course):
+    mappings = getattr(course, "active_study_program_courses", None)
+    if mappings is None:
+        mappings = course.study_program_courses.filter(
+            is_active=True, study_program__is_supported=True
+        ).select_related("study_program")
+
+    faculties = {}
+    for mapping in mappings:
+        study_program = mapping.study_program
+        org_code_parts = study_program.org_code.split(".")
+        faculty_id = (
+            org_code_parts[2]
+            if len(org_code_parts) >= 3
+            else study_program.org_code
+        )
+        faculties.setdefault(
+            faculty_id,
+            {"id": faculty_id, "name": study_program.faculty},
+        )
+
+    return sorted(faculties.values(), key=lambda faculty: faculty["name"].casefold())
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -74,29 +99,7 @@ class CourseSerializer(serializers.ModelSerializer):
         return getattr(obj, "annotated_course_type", "UNKNOWN")
 
     def get_faculties(self, obj):
-        mappings = getattr(obj, "active_study_program_courses", None)
-        if mappings is None:
-            mappings = obj.study_program_courses.filter(
-                is_active=True, study_program__is_supported=True
-            ).select_related("study_program")
-
-        faculties = {}
-        for mapping in mappings:
-            study_program = mapping.study_program
-            org_code_parts = study_program.org_code.split(".")
-            faculty_id = (
-                org_code_parts[2]
-                if len(org_code_parts) >= 3
-                else study_program.org_code
-            )
-            faculties.setdefault(
-                faculty_id,
-                {"id": faculty_id, "name": study_program.faculty},
-            )
-
-        return sorted(
-            faculties.values(), key=lambda faculty: faculty["name"].casefold()
-        )
+        return serialize_course_faculties(obj)
 
     def get_review_count(self, obj):
         return (
@@ -379,6 +382,8 @@ class CalculatorSerializer(serializers.ModelSerializer):
     course_id = serializers.SerializerMethodField("get_course_id")
     course_name = serializers.SerializerMethodField("get_course_name")
     course_sks = serializers.SerializerMethodField("get_course_sks")
+    course_code = serializers.SerializerMethodField("get_course_code")
+    course_code_desc = serializers.SerializerMethodField("get_course_code_desc")
 
     class Meta:
         model = Calculator
@@ -388,6 +393,8 @@ class CalculatorSerializer(serializers.ModelSerializer):
             "course_id",
             "course_name",
             "course_sks",
+            "course_code",
+            "course_code_desc",
             "total_score",
             "total_percentage",
         )
@@ -403,6 +410,26 @@ class CalculatorSerializer(serializers.ModelSerializer):
 
     def get_course_sks(self, obj):
         return obj.course.sks
+
+    def get_course_code(self, obj):
+        return obj.course.code
+
+    def get_course_code_desc(self, obj):
+        course_prefixes = get_config("course_prefixes")
+        code = obj.course.code[:4]
+        if code in course_prefixes:
+            return course_prefixes[code]
+        return None
+
+
+class CourseSemesterCalculatorSerializer(CalculatorSerializer):
+    faculties = serializers.SerializerMethodField("get_faculties")
+
+    class Meta(CalculatorSerializer.Meta):
+        fields = CalculatorSerializer.Meta.fields + ("faculties",)
+
+    def get_faculties(self, obj):
+        return serialize_course_faculties(obj.course)
 
 
 class ScoreComponentSerializer(serializers.ModelSerializer):
@@ -475,15 +502,27 @@ class SemesterWithCourseSerializer(serializers.ModelSerializer):
         fields = ["semester", "courses_calculator"]
 
     def get_courses_calculator(self, obj):
-        list_courses = CourseSemester.objects.filter(semester=obj)
-        list_courses = [course_semester.course for course_semester in list_courses]
-        list_calculator = [
-            CourseSemester.objects.filter(semester=obj, course=course)
-            .first()
-            .calculator
-            for course in list_courses
+        course_semesters = (
+            CourseSemester.objects.filter(semester=obj)
+            .select_related(
+                "calculator",
+                "calculator__course",
+                "calculator__user",
+            )
+            .prefetch_related(
+                Prefetch(
+                    "calculator__course__study_program_courses",
+                    queryset=StudyProgramCourse.objects.filter(
+                        is_active=True, study_program__is_supported=True
+                    ).select_related("study_program"),
+                    to_attr="active_study_program_courses",
+                )
+            )
+        )
+        calculators = [
+            course_semester.calculator for course_semester in course_semesters
         ]
-        return CalculatorSerializer(list_calculator, many=True).data
+        return CourseSemesterCalculatorSerializer(calculators, many=True).data
 
     def get_semester(self, obj):
         return UserGPASerializer(obj).data
