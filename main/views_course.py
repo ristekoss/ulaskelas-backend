@@ -119,6 +119,13 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
                 program_term=F("study_program_courses__program_term"),
                 annotated_course_type=F("study_program_courses__course_type"),
             )
+        else:
+            # show_all is still a catalog view: courses that disappeared from
+            # every supported SunJad catalog remain stored only for history.
+            courses = courses.filter(
+                study_program_courses__is_active=True,
+                study_program_courses__study_program__is_supported=True,
+            )
 
         courses = filter_course(
             request, courses, program_filtered=effective_major is not None

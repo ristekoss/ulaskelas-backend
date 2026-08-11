@@ -124,6 +124,40 @@ class MajorsEndpointTest(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["error"]["code"], "MAJOR_NOT_SUPPORTED")
 
+    @patch("main.views_course.get_config", return_value=PROGRAM_CONFIG)
+    def test_show_all_excludes_courses_without_active_programs(self, _get_config):
+        program = StudyProgram.objects.create(
+            org_code="01",
+            faculty="Fakultas A",
+            study_program="Program Z",
+            educational_program="S1 Reguler",
+        )
+        active_course = Course.objects.create(
+            code="ACTIVE01", curriculum="2024", name="Active", sks=3, term=1
+        )
+        inactive_course = Course.objects.create(
+            code="INACT001", curriculum="2024", name="Inactive", sks=3, term=1
+        )
+        StudyProgramCourse.objects.create(
+            study_program=program,
+            course=active_course,
+            program_term=1,
+        )
+        StudyProgramCourse.objects.create(
+            study_program=program,
+            course=inactive_course,
+            program_term=1,
+            is_active=False,
+        )
+
+        response = self.client.get("/api/courses/?show_all=true")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [course["code"] for course in response.data["data"]["courses"]],
+            ["ACTIVE01"],
+        )
+
     def test_course_detail_returns_unique_faculties_from_active_programs(self):
         course = Course.objects.create(
             code="UI000001",
