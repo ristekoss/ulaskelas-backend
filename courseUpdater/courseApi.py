@@ -1,4 +1,5 @@
 import logging
+import time
 
 import environ
 import requests
@@ -11,6 +12,9 @@ from main.models import Course, StudyProgram, StudyProgramCourse
 
 logger = logging.getLogger(__name__)
 SUPPORTED_EDUCATIONAL_PROGRAM_PREFIXES = ("S1 ", "D3 ", "D4 ")
+SUNJAD_REQUEST_TIMEOUT = (5, 20)
+SUNJAD_MAX_ATTEMPTS = 3
+SUNJAD_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 COURSE_TYPE_ALIASES = {
     "MANDATORY": StudyProgramCourse.CourseType.MANDATORY,
     "WAJIB": StudyProgramCourse.CourseType.MANDATORY,
@@ -89,23 +93,62 @@ def update_courses(major_kd):
         raise CourseSyncError("SUNJAD_BASE_URL is not configured")
 
     url = "{}/majors/kd/{}/all_courses".format(baseurl.rstrip("/"), major_kd)
-    payload = _fetch_courses_json(url)
-    return _apply_courses_payload(study_program, payload)
+    payload = _fetch_courses_json(url, org_code=major_kd)
+    result = _apply_courses_payload(study_program, payload)
+    logger.info(
+        "SunJad course synchronization completed",
+        extra={"org_code": major_kd, "sync_result": result},
+    )
+    return result
 
 
-def _fetch_courses_json(url):
-    try:
-        response = requests.get(url, timeout=20)
-        response.raise_for_status()
-        payload = response.json()
-    except (requests.RequestException, ValueError) as exc:
-        raise CourseSyncError("Failed to fetch SunJad courses") from exc
+def _fetch_courses_json(url, org_code=None):
+    """Fetch and validate a SunJad catalog, retrying only transient failures."""
+    for attempt in range(1, SUNJAD_MAX_ATTEMPTS + 1):
+        try:
+            response = requests.get(url, timeout=SUNJAD_REQUEST_TIMEOUT)
+            response.raise_for_status()
+            payload = response.json()
 
-    if payload == {}:
-        raise CourseCatalogUnavailable("SunJad course catalog is unavailable")
-    if not isinstance(payload, dict) or not isinstance(payload.get("courses"), list):
-        raise CourseSyncError("Invalid SunJad courses response")
-    return payload
+            if payload == {}:
+                raise CourseCatalogUnavailable(
+                    "SunJad course catalog is unavailable"
+                )
+            if not isinstance(payload, dict) or not isinstance(
+                payload.get("courses"), list
+            ):
+                raise ValueError("Invalid SunJad courses response")
+            return payload
+        except CourseCatalogUnavailable:
+            raise
+        except requests.HTTPError as exc:
+            status_code = getattr(exc.response, "status_code", None)
+            if status_code not in SUNJAD_RETRYABLE_STATUS_CODES:
+                raise CourseSyncError("Failed to fetch SunJad courses") from exc
+            error = exc
+        except (requests.RequestException, ValueError) as exc:
+            error = exc
+
+        if attempt == SUNJAD_MAX_ATTEMPTS:
+            logger.error(
+                "SunJad course fetch failed after retries",
+                extra={"attempt": attempt, "org_code": org_code, "url": url},
+                exc_info=(type(error), error, error.__traceback__),
+            )
+            raise CourseSyncError("Failed to fetch SunJad courses") from error
+
+        delay_seconds = 2 ** (attempt - 1)
+        logger.warning(
+            "Retrying SunJad course fetch",
+            extra={
+                "attempt": attempt,
+                "next_attempt": attempt + 1,
+                "org_code": org_code,
+                "retry_delay_seconds": delay_seconds,
+                "url": url,
+            },
+        )
+        time.sleep(delay_seconds)
 
 
 def _apply_courses_payload(study_program, payload):
