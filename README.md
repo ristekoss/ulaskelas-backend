@@ -161,32 +161,32 @@ The cleanup deactivates invalid catalog mappings. Invalid courses are deleted
 only when they have no review, bookmark, calculator, course-semester, or
 TanyaTeman references; referenced courses are retained for manual remediation.
 
-### Import the latest SIAK academic-history period locally
+### Import the latest SLCM IRS period locally
 
 This proof of concept runs only as a local management command. Install the
 temporary browser used by Playwright:
 
 ```bash
-pip install -r requirements-siak.txt
+pip install -r requirements-slcm.txt
 python -m playwright install chromium
 ```
 
 Run a preview for a local Teman Kuliah profile and calculator semester:
 
 ```bash
-python manage.py import_siak_irs \
+python manage.py import_slcm_irs \
     --username example.username \
     --semester 1 \
+    --irs-url "https://slcm.ui.ac.id/path-to-irs" \
     --dry-run
 ```
 
-The command opens an isolated browser at the SIAK academic-history page.
-Complete the SIAK challenge and login; no terminal confirmation is needed.
-After authentication, the command returns to the history page automatically and
-previews only the latest academic period that contains courses. Remove
+The command opens an isolated browser at the supplied SLCM IRS page. Complete
+the SLCM login; no terminal confirmation is needed. After authentication, the
+command previews only the latest academic period that contains courses. Remove
 `--dry-run` to confirm the database import in the same browser session.
-Existing calculator courses are skipped, and SIAK codes missing from the local
-catalog are reported. The command does not save SIAK credentials, cookies, page
+Existing calculator courses are skipped, and SLCM codes missing from the local
+catalog are reported. The command does not save SLCM credentials, cookies, page
 HTML, or browser storage. Use `--login-timeout` to override the default
 five-minute login window.
 
