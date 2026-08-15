@@ -6,7 +6,11 @@ from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from main.integrations.slcm_autofill import configure_mobile_chrome, hash_popup_token
+from main.integrations.slcm_autofill import (
+    configure_mobile_chrome,
+    hash_popup_token,
+    position_mobile_window,
+)
 from main.models import Course, CourseSemester, Profile, SLCMAutofillSession
 
 
@@ -102,7 +106,7 @@ class SLCMAutofillAPITest(APITestCase):
         self.assertEqual(opened.status_code, 302)
         self.assertEqual(
             opened["Location"],
-            "https://browser.example.test/?autoconnect=1&resize=scale&show_dot=true",
+            "https://browser.example.test/?autoconnect=1&resize=remote&show_dot=true",
         )
         self.assertEqual(self.client.get(url).status_code, 404)
 
@@ -127,13 +131,27 @@ class SLCMAutofillAPITest(APITestCase):
             },
         )
 
+    def test_chrome_window_fills_the_mobile_virtual_desktop(self):
+        driver = MagicMock()
+
+        position_mobile_window(driver)
+
+        driver.set_window_rect.assert_called_once_with(
+            x=0, y=0, width=430, height=932
+        )
+
     @override_settings(
         SLCM_BROWSER_SCREEN_WIDTH=200,
         SLCM_BROWSER_SCREEN_HEIGHT=300,
     )
     def test_chrome_enforces_minimum_usable_mobile_viewport(self):
         options = MagicMock()
+        driver = MagicMock()
 
         configure_mobile_chrome(options)
+        position_mobile_window(driver)
 
         options.add_argument.assert_any_call("--window-size=320,568")
+        driver.set_window_rect.assert_called_once_with(
+            x=0, y=0, width=320, height=568
+        )
