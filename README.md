@@ -209,6 +209,14 @@ The frontend should keep polling after opening the popup and close its popup or
 browser view when the session becomes `ready`, `failed`, `expired`, or
 `cancelled`; the course preview remains in the regular application UI.
 
+Changes to the Selenium screen environment require recreating the service;
+`docker compose restart` keeps the old container environment. Apply them with:
+
+```bash
+docker compose -f docker-compose-prod.yml up -d \
+  --force-recreate slcm-browser server
+```
+
 
 -------
 
