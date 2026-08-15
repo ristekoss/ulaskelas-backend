@@ -54,6 +54,13 @@ class MajorsEndpointTest(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
+            response.data["data"]["faculties"],
+            [
+                {"id": "Fakultas A", "name": "Fakultas A"},
+                {"id": "Fakultas B", "name": "Fakultas B"},
+            ],
+        )
+        self.assertEqual(
             response.data["data"]["majors"],
             [
                 {
@@ -76,6 +83,76 @@ class MajorsEndpointTest(APITestCase):
                 },
             ],
         )
+
+    @patch("main.views_course.get_config", return_value=PROGRAM_CONFIG)
+    def test_versioned_and_unversioned_majors_have_the_same_contract(self, _get_config):
+        unversioned = self.client.get("/api/majors")
+        versioned = self.client.get("/api/v1/majors")
+
+        self.assertEqual(unversioned.status_code, 200)
+        self.assertEqual(versioned.status_code, 200)
+        self.assertEqual(versioned.data, unversioned.data)
+
+    @patch("main.views_course.get_config", return_value=PROGRAM_CONFIG)
+    def test_courses_can_filter_by_full_faculty_name_and_legacy_id(self, _get_config):
+        programs = [
+            StudyProgram.objects.create(
+                org_code="01",
+                faculty="Fakultas A",
+                study_program="Program Z",
+                educational_program="S1 Reguler",
+            ),
+            StudyProgram.objects.create(
+                org_code="02",
+                faculty="Fakultas B",
+                study_program="Program A",
+                educational_program="D3",
+            ),
+        ]
+        courses = [
+            Course.objects.create(
+                code="PZ000001", curriculum="2024", name="Course A", sks=3, term=1
+            ),
+            Course.objects.create(
+                code="PA000001", curriculum="2024", name="Course B", sks=3, term=1
+            ),
+        ]
+        for program, course in zip(programs, courses):
+            StudyProgramCourse.objects.create(
+                study_program=program, course=course, program_term=1
+            )
+
+        by_name = self.client.get(
+            "/api/courses/?show_all=true&faculty=fAkUlTaS%20a"
+        )
+        by_legacy_id = self.client.get(
+            "/api/courses/?show_all=true&faculty=02"
+        )
+        multiple = self.client.get(
+            "/api/courses/?show_all=true&faculty=Fakultas%20A,Fakultas%20B"
+        )
+
+        self.assertEqual(
+            [course["code"] for course in by_name.data["data"]["courses"]],
+            ["PZ000001"],
+        )
+        self.assertEqual(
+            [course["code"] for course in by_legacy_id.data["data"]["courses"]],
+            ["PA000001"],
+        )
+        self.assertEqual(
+            {course["code"] for course in multiple.data["data"]["courses"]},
+            {"PZ000001", "PA000001"},
+        )
+
+    @patch("main.views_course.get_config", return_value=PROGRAM_CONFIG)
+    def test_unknown_faculty_filter_returns_no_courses(self, _get_config):
+        response = self.client.get(
+            "/api/courses/?show_all=true&faculty=Unknown%20Faculty"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["data"]["courses"], [])
 
     @patch("main.views_course.get_config", return_value=PROGRAM_CONFIG)
     def test_courses_filter_uses_org_code_and_program_metadata(self, _get_config):
