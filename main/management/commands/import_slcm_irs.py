@@ -1,6 +1,8 @@
+from urllib.parse import urlparse
+
 from django.core.management.base import BaseCommand, CommandError
 
-from main.integrations.siak_irs import (
+from main.integrations.slcm_irs import (
     IRSParseError,
     collect_page_tables,
     import_courses,
@@ -10,34 +12,57 @@ from main.integrations.siak_irs import (
 from main.models import CourseSemester, Profile
 
 
-DEFAULT_HISTORY_URL = "https://academic.ui.ac.id/main/Academic/HistoryByTerm"
-AUTHENTICATED_MARKER = (
-    "() => Array.from(document.querySelectorAll('a')).some((link) => "
-    "/\\/Authentication\\/Logout/i.test(link.getAttribute('href') || '') || "
-    "link.textContent.trim().toLowerCase() === 'logout')"
-)
+IRS_TABLE_MARKER = """
+() => Array.from(document.querySelectorAll("table")).some((table) => {
+  const normalize = (value) => (value || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  const firstRow = table.querySelector("thead tr") || table.querySelector("tr");
+  if (!firstRow) return false;
+  const headers = Array.from(firstRow.children).map((cell) =>
+    normalize(cell.innerText)
+  );
+  const has = (aliases) => headers.some((header) => aliases.includes(header));
+  const hasRequiredHeaders = has([
+    "code", "course code", "kode", "kode mata kuliah", "kode matakuliah",
+    "kode mk"
+  ])
+    && has([
+      "course", "course name", "mata kuliah", "matakuliah", "nama",
+      "nama mata kuliah", "nama matakuliah", "nama mk"
+    ])
+    && has(["credit", "credits", "credit units", "jumlah sks", "sks"]);
+  if (!hasRequiredHeaders) return false;
+  return Array.from(table.querySelectorAll("tr")).some((row) =>
+    row !== firstRow && Array.from(row.children).some((cell) =>
+      normalize(cell.innerText) !== ""
+    )
+  );
+})
+"""
 
 
 class Command(BaseCommand):
     help = (
-        "Open a temporary browser session and import the latest non-empty SIAK "
-        "academic-history period into a local calculator semester."
+        "Open a temporary browser session and import the latest non-empty SLCM "
+        "IRS period into a local calculator semester."
     )
 
     def add_arguments(self, parser):
         parser.add_argument("--username", required=True)
         parser.add_argument("--semester", required=True)
         parser.add_argument(
-            "--history-url",
-            "--siak-url",
-            dest="history_url",
-            default=DEFAULT_HISTORY_URL,
+            "--irs-url",
+            required=True,
+            help="SLCM URL that displays the student's IRS.",
         )
         parser.add_argument(
             "--login-timeout",
             type=int,
             default=300,
-            help="Seconds to wait for the interactive SIAK login.",
+            help="Seconds to wait for interactive SLCM login and IRS content.",
         )
         parser.add_argument(
             "--dry-run",
@@ -60,10 +85,9 @@ class Command(BaseCommand):
             )
         if options["login_timeout"] <= 0:
             raise CommandError("login-timeout must be greater than zero.")
+        self._validate_irs_url(options["irs_url"])
 
-        scraped_history = self._scrape(
-            options["history_url"], options["login_timeout"]
-        )
+        scraped_history = self._scrape(options["irs_url"], options["login_timeout"])
         scraped_courses = scraped_history["courses"]
         resolved, unmatched = resolve_courses(scraped_courses)
         existing_codes = set(
@@ -87,7 +111,7 @@ class Command(BaseCommand):
             return
         if not resolved:
             raise CommandError(
-                "None of the SIAK course codes exist in the local course catalog."
+                "None of the SLCM course codes exist in the local course catalog."
             )
 
         if not options["yes"]:
@@ -107,7 +131,13 @@ class Command(BaseCommand):
             )
         )
 
-    def _scrape(self, history_url, login_timeout):
+    @staticmethod
+    def _validate_irs_url(irs_url):
+        parsed_url = urlparse(irs_url)
+        if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+            raise CommandError("irs-url must be a valid HTTP(S) URL.")
+
+    def _scrape(self, irs_url, login_timeout):
         try:
             from playwright.sync_api import Error as PlaywrightError
             from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
@@ -124,21 +154,15 @@ class Command(BaseCommand):
                 context = browser.new_context()
                 try:
                     page = context.new_page()
-                    page.goto(history_url, wait_until="domcontentloaded")
+                    page.goto(irs_url, wait_until="domcontentloaded")
                     self.stdout.write(
-                        "Complete the SIAK challenge/login in the browser. The "
-                        "latest academic-history period will be loaded automatically."
+                        "Complete the SLCM login in the browser. The latest IRS "
+                        "period will be read automatically."
                     )
                     page.wait_for_function(
-                        AUTHENTICATED_MARKER,
+                        IRS_TABLE_MARKER,
                         timeout=login_timeout * 1000,
                     )
-                    page.goto(history_url, wait_until="domcontentloaded")
-                    page.wait_for_function(
-                        AUTHENTICATED_MARKER,
-                        timeout=30 * 1000,
-                    )
-                    page.wait_for_selector("table", state="attached", timeout=30 * 1000)
                     tables = []
                     for frame in list(page.frames):
                         try:
@@ -155,10 +179,12 @@ class Command(BaseCommand):
             raise CommandError(str(exc)) from exc
         except PlaywrightTimeoutError as exc:
             raise CommandError(
-                "Timed out waiting for SIAK login or academic-history content."
+                "Timed out waiting for SLCM login or IRS content."
             ) from exc
         except PlaywrightError as exc:
-            raise CommandError("SIAK browser session failed: {}".format(exc)) from exc
+            raise CommandError(
+                "SLCM browser session failed: {}".format(exc)
+            ) from exc
 
     def _print_preview(
         self,
@@ -170,7 +196,7 @@ class Command(BaseCommand):
         existing_codes,
     ):
         self.stdout.write(
-            "Target: {} ({}) — calculator semester {} — SIAK period {}".format(
+            "Target: {} ({}) — calculator semester {} — SLCM period {}".format(
                 profile.name, profile.username, semester, source_period
             )
         )
@@ -183,7 +209,7 @@ class Command(BaseCommand):
                 )
             )
         if unmatched:
-            self.stdout.write(self.style.WARNING("Unmatched SIAK courses:"))
+            self.stdout.write(self.style.WARNING("Unmatched SLCM courses:"))
             for course in unmatched:
                 self.stdout.write(
                     "  {} — {} ({} SKS)".format(

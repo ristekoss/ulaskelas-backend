@@ -1,4 +1,5 @@
 import mimetypes
+import uuid
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.deletion import CASCADE
@@ -245,6 +246,41 @@ class CourseSemester(models.Model):
         constraints = [
             UniqueConstraint(
                 fields=["semester", "course"], name="unique_semester_course"
+            )
+        ]
+
+
+class SLCMAutofillSession(models.Model):
+    class Status(models.TextChoices):
+        WAITING_LOGIN = "waiting_login", "Waiting for login"
+        SCRAPING = "scraping", "Scraping"
+        READY = "ready", "Ready"
+        IMPORTED = "imported", "Imported"
+        FAILED = "failed", "Failed"
+        EXPIRED = "expired", "Expired"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(Profile, on_delete=CASCADE)
+    given_semester = models.CharField(max_length=20)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.WAITING_LOGIN
+    )
+    popup_token_hash = models.CharField(max_length=64, unique=True)
+    popup_opened_at = models.DateTimeField(null=True, blank=True)
+    popup_url = models.TextField(blank=True)
+    source_period = models.CharField(max_length=127, blank=True)
+    preview = models.JSONField(default=dict, blank=True)
+    error = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["user", "status"],
+                name="main_slcmaf_user_id_d7a931_idx",
             )
         ]
 
