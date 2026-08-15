@@ -190,6 +190,19 @@ catalog are reported. The command does not save SLCM credentials, cookies, page
 HTML, or browser storage. Use `--login-timeout` to override the default
 five-minute login window.
 
+### SLCM autofill from the frontend
+
+Configure `SLCM_IRS_URL` with the fixed IRS page and expose the remote browser
+using `SLCM_BROWSER_PUBLIC_URL`. The production Compose file includes the
+single-session Chromium/noVNC service used by the login popup.
+
+Create an authenticated session with `POST /api/slcm-autofill/sessions` and a
+JSON body such as `{"given_semester":"1"}`. Open the returned `popup_url`, poll
+`GET /api/slcm-autofill/sessions/{session_id}`, display its preview once the
+status is `ready`, and finish with
+`POST /api/slcm-autofill/sessions/{session_id}/confirm`. Cancel an unfinished
+session with `DELETE /api/slcm-autofill/sessions/{session_id}`.
+
 
 -------
 
