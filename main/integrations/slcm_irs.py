@@ -12,7 +12,7 @@ from main.utils import (
 
 
 class IRSParseError(ValueError):
-    """Raised when the SIAK academic-history table cannot be recognized."""
+    """Raised when the SLCM IRS table cannot be recognized."""
 
 
 HEADER_ALIASES = {
@@ -82,9 +82,10 @@ def parse_latest_history(tables):
 
     ``tables`` is a list of dictionaries containing ``headers`` and ``rows``.
     Keeping this parser independent of Playwright makes it safe to unit test
-    without a live SIAK session.
+    without a live SLCM session.
     """
     courses_by_period = {}
+    active_period_courses = []
     observed_headers = []
     for table in tables:
         headers = table.get("headers") or []
@@ -98,7 +99,10 @@ def parse_latest_history(tables):
                 courses_by_period.setdefault(period_label, []).extend(courses)
             continue
 
-        if table.get("row_periods"):
+        if any(
+            _normalize_period_label(period)
+            for period in table.get("row_periods") or []
+        ):
             for period_label, courses in _parse_row_periods(table, indexes).items():
                 courses_by_period.setdefault(period_label, []).extend(courses)
             continue
@@ -108,6 +112,8 @@ def parse_latest_history(tables):
             courses_by_period.setdefault(period_label, []).extend(
                 _parse_candidate(table, indexes)
             )
+        else:
+            active_period_courses.extend(_parse_candidate(table, indexes))
 
     if not any(
         {"code", "name", "credits"}.issubset(_column_indexes(table.get("headers") or []))
@@ -131,6 +137,11 @@ def parse_latest_history(tables):
         for label, courses in courses_by_period.items()
         if courses
     }
+    if not non_empty_periods and active_period_courses:
+        return {
+            "period": "Periode Aktif SLCM",
+            "courses": _deduplicate_courses(active_period_courses),
+        }
     if not non_empty_periods:
         raise IRSParseError(
             "Course tables were found, but their academic periods could not be "
@@ -268,6 +279,9 @@ def collect_page_tables(page):
               (cell) => ["TH", "TD"].includes(cell.tagName)
             ).map((cell) => cell.innerText.trim());
             bodyRows = allRows.slice(1);
+          } else if (bodyRows.length === 0) {
+            const headerRow = table.querySelector("thead tr");
+            bodyRows = allRows.filter((row) => row !== headerRow);
           }
 
           const caption = table.querySelector("caption");
@@ -340,6 +354,9 @@ def resolve_courses(scraped_courses):
 @transaction.atomic
 def import_courses(profile, given_semester, courses):
     """Add resolved courses to one calculator semester atomically."""
+    if not courses:
+        raise ValueError("At least one resolved course is required.")
+
     cumulative_gpa = check_notexist_and_create_user_cumulative_gpa(profile)
     semester, semester_created = UserGPA.objects.get_or_create(
         userCumulativeGPA=cumulative_gpa,

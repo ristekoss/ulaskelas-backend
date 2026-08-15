@@ -6,16 +6,13 @@ from django.core.management import call_command, CommandError
 from django.test import TestCase
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from main.integrations.siak_irs import (
+from main.integrations.slcm_irs import (
     IRSParseError,
     import_courses,
     parse_latest_history,
     resolve_courses,
 )
-from main.management.commands.import_siak_irs import (
-    AUTHENTICATED_MARKER,
-    Command,
-)
+from main.management.commands.import_slcm_irs import Command, IRS_TABLE_MARKER
 from main.models import (
     Calculator,
     Course,
@@ -26,7 +23,7 @@ from main.models import (
 )
 
 
-class SIAKIRSParserTest(TestCase):
+class SLCMIRSParserTest(TestCase):
     def test_parser_selects_latest_period_and_deduplicates_codes(self):
         history = parse_latest_history(
             [
@@ -105,7 +102,7 @@ class SIAKIRSParserTest(TestCase):
             ["NEW000001", "NEW000002"],
         )
 
-    def test_parser_selects_latest_siak_separator_period(self):
+    def test_parser_selects_latest_slcm_separator_period(self):
         history = parse_latest_history(
             [
                 {
@@ -191,18 +188,40 @@ class SIAKIRSParserTest(TestCase):
             [{"code": "SHORT0001", "name": "Short", "credits": 2}],
         )
 
-    def test_parser_rejects_course_table_without_period_metadata(self):
-        with self.assertRaisesMessage(
-            IRSParseError, "academic periods could not be recognized"
-        ):
-            parse_latest_history(
-                [
-                    {
-                        "headers": ["Kode", "Mata Kuliah", "SKS"],
-                        "rows": [["VALID0001", "Valid Course", "3"]],
-                    }
-                ]
-            )
+    def test_parser_treats_unlabelled_course_table_as_active_slcm_period(self):
+        history = parse_latest_history(
+            [
+                {
+                    "headers": [
+                        "No.",
+                        "Kode MK",
+                        "Nama MK",
+                        "SKS",
+                        "Jenis Kelas",
+                        "Tanggal Pengisian",
+                        "Penyelenggara",
+                    ],
+                    "row_periods": [""],
+                    "rows": [
+                        [
+                            "1",
+                            "VALID0001",
+                            "Valid Course",
+                            "3",
+                            "Reguler",
+                            "-",
+                            "Fakultas A",
+                        ]
+                    ],
+                }
+            ]
+        )
+
+        self.assertEqual(history["period"], "Periode Aktif SLCM")
+        self.assertEqual(
+            history["courses"],
+            [{"code": "VALID0001", "name": "Valid Course", "credits": 3}],
+        )
 
     def test_parser_rejects_unorderable_period(self):
         with self.assertRaisesMessage(IRSParseError, "could not be ordered"):
@@ -267,7 +286,7 @@ class SIAKIRSParserTest(TestCase):
         )
 
 
-class SIAKIRSImportTest(TestCase):
+class SLCMIRSImportTest(TestCase):
     def setUp(self):
         auth_user = User.objects.create_user(username="test-user")
         self.profile = Profile.objects.create(
@@ -338,7 +357,7 @@ class SIAKIRSImportTest(TestCase):
         self.assertEqual(first_result["inserted"], [self.course])
 
     @patch(
-        "main.integrations.siak_irs.add_semester_gpa",
+        "main.integrations.slcm_irs.add_semester_gpa",
         side_effect=RuntimeError("forced failure"),
     )
     def test_import_rolls_back_all_changes(self, _add_semester_gpa):
@@ -350,8 +369,15 @@ class SIAKIRSImportTest(TestCase):
         self.assertFalse(Calculator.objects.exists())
         self.assertFalse(CourseSemester.objects.exists())
 
+    def test_import_rejects_empty_course_list_without_creating_semester(self):
+        with self.assertRaisesMessage(ValueError, "At least one resolved course"):
+            import_courses(self.profile, "1", [])
+
+        self.assertFalse(UserCumulativeGPA.objects.exists())
+        self.assertFalse(UserGPA.objects.exists())
+
     @patch(
-        "main.management.commands.import_siak_irs.Command._scrape",
+        "main.management.commands.import_slcm_irs.Command._scrape",
         return_value={
             "period": "2024/2025 Genap",
             "courses": [
@@ -367,9 +393,10 @@ class SIAKIRSImportTest(TestCase):
         stdout = StringIO()
 
         call_command(
-            "import_siak_irs",
+            "import_slcm_irs",
             username=self.profile.username,
             semester="1",
+            irs_url="https://slcm.ui.ac.id/student/irs",
             dry_run=True,
             stdout=stdout,
         )
@@ -381,18 +408,18 @@ class SIAKIRSImportTest(TestCase):
         self.assertFalse(Calculator.objects.exists())
 
 
-class SIAKIRSBrowserFlowTest(TestCase):
+class SLCMIRSBrowserFlowTest(TestCase):
     @patch(
-        "main.management.commands.import_siak_irs.parse_latest_history",
+        "main.management.commands.import_slcm_irs.parse_latest_history",
         return_value={"period": "2024/2025 Genap", "courses": []},
     )
     @patch(
-        "main.management.commands.import_siak_irs.collect_page_tables",
+        "main.management.commands.import_slcm_irs.collect_page_tables",
         return_value=[{"headers": [], "rows": []}],
     )
     @patch("playwright.sync_api.sync_playwright")
     @patch("builtins.input", side_effect=AssertionError("input must not be called"))
-    def test_scrape_waits_for_login_and_navigates_to_history_automatically(
+    def test_scrape_waits_for_login_and_reads_irs_automatically(
         self,
         _input,
         sync_playwright,
@@ -405,27 +432,17 @@ class SIAKIRSBrowserFlowTest(TestCase):
         page = context.new_page.return_value
         frame = MagicMock()
         page.frames = [frame]
-        history_url = "https://academic.ui.ac.id/main/Academic/HistoryByTerm"
+        irs_url = "https://slcm.ui.ac.id/student/irs"
 
-        result = Command()._scrape(history_url, 12)
+        result = Command()._scrape(irs_url, 12)
 
         self.assertEqual(result["period"], "2024/2025 Genap")
         self.assertEqual(
             page.goto.call_args_list,
-            [
-                call(history_url, wait_until="domcontentloaded"),
-                call(history_url, wait_until="domcontentloaded"),
-            ],
+            [call(irs_url, wait_until="domcontentloaded")],
         )
-        self.assertEqual(
-            page.wait_for_function.call_args_list,
-            [
-                call(AUTHENTICATED_MARKER, timeout=12000),
-                call(AUTHENTICATED_MARKER, timeout=30000),
-            ],
-        )
-        page.wait_for_selector.assert_called_once_with(
-            "table", state="attached", timeout=30000
+        page.wait_for_function.assert_called_once_with(
+            IRS_TABLE_MARKER, timeout=12000
         )
         context.close.assert_called_once()
         browser.close.assert_called_once()
@@ -442,6 +459,10 @@ class SIAKIRSBrowserFlowTest(TestCase):
 
         with self.assertRaisesMessage(CommandError, "Timed out waiting"):
             Command()._scrape(
-                "https://academic.ui.ac.id/main/Academic/HistoryByTerm",
+                "https://slcm.ui.ac.id/student/irs",
                 1,
             )
+
+    def test_rejects_invalid_irs_url(self):
+        with self.assertRaisesMessage(CommandError, "valid HTTP(S) URL"):
+            Command()._validate_irs_url("not-a-url")
