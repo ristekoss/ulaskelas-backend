@@ -67,6 +67,20 @@ def get_major_choices():
     return sorted(choices, key=lambda item: item["display_name"].casefold())
 
 
+def _faculty_legacy_id(org_code):
+    parts = str(org_code).split(".")
+    return parts[2] if len(parts) >= 3 else str(org_code)
+
+
+def get_faculty_choices(majors=None):
+    """Return unique full faculty names for frontend filter controls."""
+    faculties = {}
+    for major in majors if majors is not None else get_major_choices():
+        name = major["faculty"]
+        faculties.setdefault(name.casefold(), {"id": name, "name": name})
+    return sorted(faculties.values(), key=lambda item: item["name"].casefold())
+
+
 def is_known_supported_major(org_code):
     org = (get_config("kd_org") or {}).get(org_code)
     return bool(
@@ -77,7 +91,13 @@ def is_known_supported_major(org_code):
 
 @api_view(["GET"])
 def majors(request):
-    return response(data={"majors": get_major_choices()})
+    major_choices = get_major_choices()
+    return response(
+        data={
+            "faculties": get_faculty_choices(major_choices),
+            "majors": major_choices,
+        }
+    )
 
 
 class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
@@ -170,6 +190,38 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
 
 
 def filter_course(request, courses, program_filtered=False):
+    faculty_values = request.query_params.get("faculty")
+    if faculty_values is not None:
+        requested_faculties = {
+            value.strip().casefold()
+            for value in faculty_values.split(",")
+            if value.strip()
+        }
+        if not requested_faculties:
+            return courses.none()
+
+        aliases = {}
+        for major in get_major_choices():
+            faculty_name = major["faculty"]
+            aliases[faculty_name.casefold()] = faculty_name
+            aliases[_faculty_legacy_id(major["org_code"]).casefold()] = faculty_name
+        resolved_faculties = {
+            aliases[value] for value in requested_faculties if value in aliases
+        }
+        if len(resolved_faculties) != len(requested_faculties):
+            return courses.none()
+
+        faculty_filter = Q()
+        for faculty_name in resolved_faculties:
+            faculty_filter |= Q(
+                study_program_courses__study_program__faculty__iexact=faculty_name
+            )
+        courses = courses.filter(
+            faculty_filter,
+            study_program_courses__is_active=True,
+            study_program_courses__study_program__is_supported=True,
+        )
+
     code = request.query_params.get("code")
     if code is not None:
         courses = courses.filter(code__icontains=code)
