@@ -1,12 +1,12 @@
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import User
 from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from main.integrations.slcm_autofill import hash_popup_token
+from main.integrations.slcm_autofill import configure_mobile_chrome, hash_popup_token
 from main.models import Course, CourseSemester, Profile, SLCMAutofillSession
 
 
@@ -14,6 +14,8 @@ from main.models import Course, CourseSemester, Profile, SLCMAutofillSession
     SLCM_IRS_URL="https://slcm.ui.ac.id/student/irs",
     SLCM_BROWSER_PUBLIC_URL="https://browser.example.test",
     SLCM_AUTOFILL_TIMEOUT_SECONDS=300,
+    SLCM_BROWSER_SCREEN_WIDTH=430,
+    SLCM_BROWSER_SCREEN_HEIGHT=932,
 )
 class SLCMAutofillAPITest(APITestCase):
     def setUp(self):
@@ -96,5 +98,42 @@ class SLCMAutofillAPITest(APITestCase):
         )
         self.client.force_authenticate(user=None)
         url = "/api/slcm-autofill/popup/{}".format(token)
-        self.assertEqual(self.client.get(url).status_code, 302)
+        opened = self.client.get(url)
+        self.assertEqual(opened.status_code, 302)
+        self.assertEqual(
+            opened["Location"],
+            "https://browser.example.test/?autoconnect=1&resize=scale&show_dot=true",
+        )
         self.assertEqual(self.client.get(url).status_code, 404)
+
+    def test_chrome_uses_mobile_viewport_and_touch_metrics(self):
+        options = MagicMock()
+
+        configured = configure_mobile_chrome(options)
+
+        self.assertIs(configured, options)
+        options.add_argument.assert_any_call("--window-size=430,932")
+        options.add_argument.assert_any_call("--force-device-scale-factor=1")
+        options.add_experimental_option.assert_called_once_with(
+            "mobileEmulation",
+            {
+                "deviceMetrics": {
+                    "width": 430,
+                    "height": 932,
+                    "pixelRatio": 1,
+                    "touch": True,
+                    "mobile": True,
+                }
+            },
+        )
+
+    @override_settings(
+        SLCM_BROWSER_SCREEN_WIDTH=200,
+        SLCM_BROWSER_SCREEN_HEIGHT=300,
+    )
+    def test_chrome_enforces_minimum_usable_mobile_viewport(self):
+        options = MagicMock()
+
+        configure_mobile_chrome(options)
+
+        options.add_argument.assert_any_call("--window-size=320,568")
