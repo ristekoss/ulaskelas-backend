@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 from pathlib import Path
 from corsheaders import defaults
 import django_heroku
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -141,6 +142,10 @@ DEBUG = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 CONN_MAX_AGE = 1
+SLCM_IRS_URL = os.environ.get("SLCM_IRS_URL", "")
+SLCM_BROWSER_REMOTE_URL = os.environ.get("SLCM_BROWSER_REMOTE_URL", "http://slcm-browser:4444/wd/hub")
+SLCM_BROWSER_PUBLIC_URL = os.environ.get("SLCM_BROWSER_PUBLIC_URL", "http://localhost:7900")
+SLCM_AUTOFILL_TIMEOUT_SECONDS = int(os.environ.get("SLCM_AUTOFILL_TIMEOUT_SECONDS", "300"))
 SECURE_SSL_REDIRECT = True
 MEDIA_ROOT = BASE_DIR / "media"
 STATIC_ROOT = BASE_DIR / "static"
