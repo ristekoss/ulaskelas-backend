@@ -52,8 +52,8 @@ class Command(BaseCommand):
             except CourseCatalogUnavailable as exc:
                 unavailable.append(current_org_code)
                 logger.warning(
-                    "Course catalog unavailable for org_code=%s",
-                    current_org_code,
+                    "Course catalog unavailable",
+                    extra={"org_code": current_org_code},
                 )
                 self.stderr.write(
                     self.style.WARNING("{}: {}".format(current_org_code, exc))
@@ -61,7 +61,8 @@ class Command(BaseCommand):
             except CourseSyncError as exc:
                 failed.append(current_org_code)
                 logger.exception(
-                    "Course synchronization failed for org_code=%s", current_org_code
+                    "Course synchronization failed",
+                    extra={"org_code": current_org_code},
                 )
                 self.stderr.write(
                     self.style.ERROR("{}: {}".format(current_org_code, exc))

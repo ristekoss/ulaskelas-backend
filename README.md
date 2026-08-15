@@ -123,10 +123,26 @@ To refresh only one SSO/SunJad organization code:
 python manage.py sync_courses --org-code 01.00.12.01
 ```
 
-Run the all-program command weekly from the deployment scheduler. A failed
-program is reported at the end without preventing the remaining programs from
-being synchronized. Programs that have no SunJad catalog yet are reported as
-unavailable without making the command fail.
+Configure the production managed scheduler to run the all-program command
+daily at **02:00 Asia/Jakarta** (`0 2 * * *` when the scheduler supports an
+explicit timezone, or `0 19 * * *` in UTC):
+
+```bash
+python manage.py sync_courses --all
+```
+
+Run the same command once immediately after the first deployment so the
+catalog is populated without waiting for the next schedule. The scheduler
+must retain stdout/stderr and alert on a non-zero exit status. A failed program
+is reported at the end without preventing the remaining programs from being
+synchronized. Programs that have no SunJad catalog yet are reported as
+unavailable without changing their existing course statuses.
+
+SunJad requests use a 5-second connection timeout, a 20-second read timeout,
+and up to three attempts with exponential backoff for transient failures.
+Course mappings are deactivated only after a valid catalog snapshot; failed or
+untrusted responses never cause mass deactivation. Inactive courses stay in
+the database so existing reviews and calculator history remain accessible.
 
 Before the first sync after deploying course-code validation, audit invalid
 legacy courses with the dry-run cleanup command:
