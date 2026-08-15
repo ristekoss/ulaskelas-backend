@@ -186,5 +186,8 @@ def slcm_autofill_popup(request, token):
             )
         session.popup_opened_at = timezone.now()
         session.save(update_fields=["popup_opened_at", "updated_at"])
-    target = settings.SLCM_BROWSER_PUBLIC_URL.rstrip("/") + "/?autoconnect=1&resize=scale"
+    target = (
+        settings.SLCM_BROWSER_PUBLIC_URL.rstrip("/")
+        + "/?autoconnect=1&resize=remote&show_dot=true"
+    )
     return redirect(target)

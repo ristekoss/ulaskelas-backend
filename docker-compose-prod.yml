@@ -36,6 +36,9 @@ services:
       - SE_NODE_MAX_SESSIONS=1
       - SE_NODE_OVERRIDE_MAX_SESSIONS=false
       - SE_VNC_NO_PASSWORD=1
+      - SE_SCREEN_WIDTH=${SLCM_BROWSER_SCREEN_WIDTH:-430}
+      - SE_SCREEN_HEIGHT=${SLCM_BROWSER_SCREEN_HEIGHT:-932}
+      - SE_SCREEN_DEPTH=24
     ports:
       - "7900:7900"
     restart: unless-stopped

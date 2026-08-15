@@ -87,6 +87,39 @@ def start_scraper(session_id):
     thread.start()
 
 
+def mobile_screen_size():
+    return (
+        max(320, int(settings.SLCM_BROWSER_SCREEN_WIDTH)),
+        max(568, int(settings.SLCM_BROWSER_SCREEN_HEIGHT)),
+    )
+
+
+def configure_mobile_chrome(options):
+    """Configure Chrome for a phone-sized, touch-enabled SLCM login."""
+    width, height = mobile_screen_size()
+    options.add_argument("--window-size={},{}".format(width, height))
+    options.add_argument("--force-device-scale-factor=1")
+    options.add_experimental_option(
+        "mobileEmulation",
+        {
+            "deviceMetrics": {
+                "width": width,
+                "height": height,
+                "pixelRatio": 1,
+                "touch": True,
+                "mobile": True,
+            }
+        },
+    )
+    return options
+
+
+def position_mobile_window(driver):
+    """Fill the portrait virtual desktop instead of leaving a small window."""
+    width, height = mobile_screen_size()
+    driver.set_window_rect(x=0, y=0, width=width, height=height)
+
+
 def _scrape_session(session_id):
     close_old_connections()
     driver = None
@@ -98,10 +131,12 @@ def _scrape_session(session_id):
         session = SLCMAutofillSession.objects.get(pk=session_id)
         if session.status != SLCMAutofillSession.Status.WAITING_LOGIN:
             return
+        chrome_options = configure_mobile_chrome(webdriver.ChromeOptions())
         driver = webdriver.Remote(
             command_executor=settings.SLCM_BROWSER_REMOTE_URL,
-            options=webdriver.ChromeOptions(),
+            options=chrome_options,
         )
+        position_mobile_window(driver)
         driver.get(validate_slcm_url())
 
         def find_history(current_driver):

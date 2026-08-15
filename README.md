@@ -203,6 +203,20 @@ status is `ready`, and finish with
 `POST /api/slcm-autofill/sessions/{session_id}/confirm`. Cancel an unfinished
 session with `DELETE /api/slcm-autofill/sessions/{session_id}`.
 
+The remote browser defaults to a touch-enabled `430x932` viewport. Override it
+with `SLCM_BROWSER_SCREEN_WIDTH` and `SLCM_BROWSER_SCREEN_HEIGHT` when needed.
+The frontend should keep polling after opening the popup and close its popup or
+browser view when the session becomes `ready`, `failed`, `expired`, or
+`cancelled`; the course preview remains in the regular application UI.
+
+Changes to the Selenium screen environment require recreating the service;
+`docker compose restart` keeps the old container environment. Apply them with:
+
+```bash
+docker compose -f docker-compose-prod.yml up -d \
+  --force-recreate slcm-browser server
+```
+
 
 -------
 
