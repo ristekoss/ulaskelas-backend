@@ -21,6 +21,16 @@ COURSE_TYPE_ALIASES = {
     "ELECTIVE": StudyProgramCourse.CourseType.ELECTIVE,
     "PILIHAN": StudyProgramCourse.CourseType.ELECTIVE,
 }
+CATEGORY_ALIASES = {
+    "KELAS INTERNAL": StudyProgramCourse.Category.INTERNAL,
+    "INTERNAL": StudyProgramCourse.Category.INTERNAL,
+    "KELAS BERSAMA": StudyProgramCourse.Category.SHARED,
+    "BERSAMA": StudyProgramCourse.Category.SHARED,
+    "SHARED": StudyProgramCourse.Category.SHARED,
+    "KELAS EKSTERNAL": StudyProgramCourse.Category.EXTERNAL,
+    "EKSTERNAL": StudyProgramCourse.Category.EXTERNAL,
+    "EXTERNAL": StudyProgramCourse.Category.EXTERNAL,
+}
 INVALID_COURSE_CODE_SENTINELS = {"none", "null", "n/a"}
 
 
@@ -178,6 +188,7 @@ def _apply_courses_payload(study_program, payload):
                     "program_term": int(course_json["term"]),
                     "curriculum": str(course_json.get("curriculum") or ""),
                     "course_type": _resolve_course_type(course_json),
+                    "category": _resolve_category(course_json),
                     "is_active": True,
                 },
             )
@@ -230,7 +241,6 @@ def _resolve_course_type(course_json):
     raw_type = (
         course_json.get("course_type")
         or course_json.get("type")
-        or course_json.get("category")
     )
     if raw_type:
         normalized_type = str(raw_type).strip().upper()
@@ -253,6 +263,15 @@ def _resolve_course_type(course_json):
         if "pilihan" in normalized_description or "peminatan" in normalized_description:
             return StudyProgramCourse.CourseType.ELECTIVE
     return StudyProgramCourse.CourseType.UNKNOWN
+
+
+def _resolve_category(course_json):
+    raw_category = course_json.get("category")
+    if not raw_category:
+        return StudyProgramCourse.Category.UNKNOWN
+    return CATEGORY_ALIASES.get(
+        str(raw_category).strip().upper(), StudyProgramCourse.Category.UNKNOWN
+    )
 
 
 # Backwards-compatible helpers retained for callers/tests that imported them.

@@ -138,6 +138,7 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
             ).annotate(
                 program_term=F("study_program_courses__program_term"),
                 annotated_course_type=F("study_program_courses__course_type"),
+                annotated_category=F("study_program_courses__category"),
             )
         else:
             # show_all is still a catalog view: courses that disappeared from
@@ -291,6 +292,26 @@ def filter_course(request, courses, program_filtered=False):
             courses = courses.filter(
                 study_program_courses__is_active=True,
                 study_program_courses__course_type__in=requested_types,
+            )
+
+    categories = request.query_params.get("category")
+    if categories is not None:
+        valid_categories = {choice[0] for choice in StudyProgramCourse.Category.choices}
+        requested_categories = {
+            value.strip().upper()
+            for value in categories.split(",")
+            if value.strip()
+        }
+        if not requested_categories or not requested_categories.issubset(
+            valid_categories
+        ):
+            return courses.none()
+        if program_filtered:
+            courses = courses.filter(annotated_category__in=requested_categories)
+        else:
+            courses = courses.filter(
+                study_program_courses__is_active=True,
+                study_program_courses__category__in=requested_categories,
             )
 
     return courses
