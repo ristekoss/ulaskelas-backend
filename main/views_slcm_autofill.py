@@ -108,7 +108,9 @@ def slcm_autofill_sessions(request):
             expires_at=timezone.now() + timedelta(seconds=settings.SLCM_AUTOFILL_TIMEOUT_SECONDS),
         )
         popup_path = reverse("v1:slcm-autofill-popup", kwargs={"token": token})
-        session.popup_url = request.build_absolute_uri(popup_path)
+        session.popup_url = request.build_absolute_uri(popup_path).replace(
+            "http://", "https://", 1
+        )
         session.save(update_fields=["popup_url", "updated_at"])
         transaction.on_commit(lambda: start_scraper(session.id))
     return response(data=_serialize(session, include_popup=True), status=status.HTTP_201_CREATED)

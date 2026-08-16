@@ -38,6 +38,7 @@ class SLCMAutofillAPITest(APITestCase):
         )
         self.assertEqual(result.status_code, 201)
         self.assertEqual(result.data["data"]["status"], "waiting_login")
+        self.assertTrue(result.data["data"]["popup_url"].startswith("https://"))
         self.assertIn("/api/slcm-autofill/popup/", result.data["data"]["popup_url"])
         duplicate = self.client.post(
             "/api/slcm-autofill/sessions", {"given_semester": "2"}, format="json"
