@@ -139,7 +139,31 @@ class CourseViewSet(AutoPrefetchViewSetMixin, viewsets.ReadOnlyModelViewSet):
                 program_term=F("study_program_courses__program_term"),
                 annotated_course_type=F("study_program_courses__course_type"),
                 annotated_category=F("study_program_courses__category"),
+                annotated_program_curriculum=F(
+                    "study_program_courses__curriculum"
+                ),
             )
+
+            # A SunJad all_courses catalog also contains external courses. When
+            # callers do not request a category explicitly, keep the major
+            # catalog focused on internal/shared courses. Older records whose
+            # category has not been backfilled can only be considered internal
+            # when their program-specific curriculum identifies this major.
+            if request.query_params.get("category") is None:
+                courses = courses.filter(
+                    Q(
+                        annotated_category__in=[
+                            StudyProgramCourse.Category.INTERNAL,
+                            StudyProgramCourse.Category.SHARED,
+                        ]
+                    )
+                    | Q(
+                        annotated_category=StudyProgramCourse.Category.UNKNOWN,
+                        annotated_program_curriculum__startswith=(
+                            "{}-".format(effective_major)
+                        ),
+                    )
+                )
         else:
             # show_all is still a catalog view: courses that disappeared from
             # every supported SunJad catalog remain stored only for history.
