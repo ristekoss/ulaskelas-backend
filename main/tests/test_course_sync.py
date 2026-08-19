@@ -42,6 +42,7 @@ class CourseSyncTest(TestCase):
                         "name": "Course A",
                         "term": "2",
                         "prerequisite": None,
+                        "category": "Kelas Internal",
                     },
                     {
                         "code": "XX000001",
@@ -61,9 +62,47 @@ class CourseSyncTest(TestCase):
         unknown = StudyProgramCourse.objects.get(course__code="XX000001")
         self.assertEqual(mandatory.program_term, 2)
         self.assertEqual(mandatory.course_type, "MANDATORY")
+        self.assertEqual(mandatory.category, "INTERNAL")
         self.assertEqual(unknown.course_type, "UNKNOWN")
+        self.assertEqual(unknown.category, "UNKNOWN")
         self.program.refresh_from_db()
         self.assertIsNotNone(self.program.last_synced_at)
+
+    @patch("courseUpdater.courseApi.get_config", return_value={})
+    def test_sync_normalizes_categories_without_treating_them_as_course_types(
+        self, _get_config
+    ):
+        categories = [
+            ("Kelas Internal", StudyProgramCourse.Category.INTERNAL),
+            ("Kelas Bersama", StudyProgramCourse.Category.SHARED),
+            ("Kelas Eksternal", StudyProgramCourse.Category.EXTERNAL),
+            ("", StudyProgramCourse.Category.UNKNOWN),
+            ("Kategori Baru", StudyProgramCourse.Category.UNKNOWN),
+        ]
+        payload = {
+            "courses": [
+                {
+                    "code": "CAT{:05d}".format(index),
+                    "curriculum": "2024",
+                    "credit": 3,
+                    "name": "Category {}".format(index),
+                    "term": 1,
+                    "category": raw_category,
+                }
+                for index, (raw_category, _expected) in enumerate(categories)
+            ]
+        }
+
+        _apply_courses_payload(self.program, payload)
+
+        mappings = {
+            mapping.course.code: mapping
+            for mapping in StudyProgramCourse.objects.select_related("course")
+        }
+        for index, (_raw_category, expected) in enumerate(categories):
+            mapping = mappings["CAT{:05d}".format(index)]
+            self.assertEqual(mapping.category, expected)
+            self.assertEqual(mapping.course_type, StudyProgramCourse.CourseType.UNKNOWN)
 
     @patch("courseUpdater.courseApi.get_config", return_value={})
     def test_successful_sync_marks_missing_relations_inactive(self, _get_config):

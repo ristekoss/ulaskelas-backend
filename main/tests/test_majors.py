@@ -173,16 +173,19 @@ class MajorsEndpointTest(APITestCase):
             course=matching,
             program_term=2,
             course_type=StudyProgramCourse.CourseType.MANDATORY,
+            category=StudyProgramCourse.Category.INTERNAL,
         )
         StudyProgramCourse.objects.create(
             study_program=program,
             course=other,
             program_term=1,
             course_type=StudyProgramCourse.CourseType.ELECTIVE,
+            category=StudyProgramCourse.Category.SHARED,
         )
 
         response = self.client.get(
-            "/api/courses/?major=01&term=2&course_type=MANDATORY&show_all=true"
+            "/api/courses/?major=01&term=2&course_type=MANDATORY"
+            "&category=INTERNAL&show_all=true"
         )
 
         self.assertEqual(response.status_code, 200)
@@ -190,9 +193,120 @@ class MajorsEndpointTest(APITestCase):
         self.assertEqual([course["code"] for course in courses], ["PZ000001"])
         self.assertEqual(courses[0]["program_term"], 2)
         self.assertEqual(courses[0]["course_type"], "MANDATORY")
+        self.assertEqual(courses[0]["category"], "INTERNAL")
         self.assertEqual(
             courses[0]["faculties"], [{"id": "01", "name": "Fakultas A"}]
         )
+
+        multiple = self.client.get(
+            "/api/courses/?major=01&category=INTERNAL,SHARED&show_all=true"
+        )
+        self.assertEqual(
+            {course["category"] for course in multiple.data["data"]["courses"]},
+            {"INTERNAL", "SHARED"},
+        )
+
+        invalid = self.client.get(
+            "/api/courses/?major=01&category=INVALID&show_all=true"
+        )
+        self.assertEqual(invalid.data["data"]["courses"], [])
+
+    @patch("main.views_course.get_config", return_value=PROGRAM_CONFIG)
+    def test_major_defaults_to_internal_shared_and_owned_unknown(self, _get_config):
+        program = StudyProgram.objects.create(
+            org_code="01",
+            faculty="Fakultas A",
+            study_program="Program Z",
+            educational_program="S1 Reguler",
+        )
+        fixtures = [
+            ("Internal", StudyProgramCourse.Category.INTERNAL, "02-2024"),
+            ("Shared", StudyProgramCourse.Category.SHARED, "02-2024"),
+            ("Owned unknown", StudyProgramCourse.Category.UNKNOWN, "01-2024"),
+            ("External", StudyProgramCourse.Category.EXTERNAL, "02-2024"),
+            ("Foreign unknown", StudyProgramCourse.Category.UNKNOWN, "02-2024"),
+            ("Missing curriculum", StudyProgramCourse.Category.UNKNOWN, ""),
+        ]
+        for index, (name, category, curriculum) in enumerate(fixtures):
+            course = Course.objects.create(
+                code="OWN{:05d}".format(index),
+                curriculum=curriculum,
+                name=name,
+                sks=3,
+                term=1,
+            )
+            StudyProgramCourse.objects.create(
+                study_program=program,
+                course=course,
+                program_term=1,
+                curriculum=curriculum,
+                category=category,
+            )
+
+        response = self.client.get("/api/courses/?major=01&show_all=true")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [course["name"] for course in response.data["data"]["courses"]],
+            ["Internal", "Owned unknown", "Shared"],
+        )
+
+    @patch("main.views_course.get_config", return_value=PROGRAM_CONFIG)
+    def test_explicit_category_overrides_default_major_ownership(self, _get_config):
+        program = StudyProgram.objects.create(
+            org_code="01",
+            faculty="Fakultas A",
+            study_program="Program Z",
+            educational_program="S1 Reguler",
+        )
+        external = Course.objects.create(
+            code="EXTERNAL", curriculum="02-2024", name="External", sks=3, term=1
+        )
+        StudyProgramCourse.objects.create(
+            study_program=program,
+            course=external,
+            program_term=1,
+            curriculum="02-2024",
+            category=StudyProgramCourse.Category.EXTERNAL,
+        )
+
+        response = self.client.get(
+            "/api/courses/?major=01&category=EXTERNAL&show_all=true"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [course["code"] for course in response.data["data"]["courses"]],
+            ["EXTERNAL"],
+        )
+
+    @patch("main.views_course.get_config", return_value=PROGRAM_CONFIG)
+    def test_cross_program_category_filter_uses_active_mappings(self, _get_config):
+        program = StudyProgram.objects.create(
+            org_code="01",
+            faculty="Fakultas A",
+            study_program="Program Z",
+            educational_program="S1 Reguler",
+        )
+        course = Course.objects.create(
+            code="SHARED01", curriculum="2024", name="Shared", sks=3, term=1
+        )
+        StudyProgramCourse.objects.create(
+            study_program=program,
+            course=course,
+            program_term=1,
+            category=StudyProgramCourse.Category.SHARED,
+        )
+
+        response = self.client.get(
+            "/api/courses/?show_all=true&category=SHARED"
+        )
+
+        self.assertEqual(
+            [item["code"] for item in response.data["data"]["courses"]],
+            ["SHARED01"],
+        )
+        self.assertEqual(response.data["data"]["courses"][0]["category"], "UNKNOWN")
 
     @patch("main.views_course.get_config", return_value=PROGRAM_CONFIG)
     def test_unknown_or_unsupported_major_returns_bad_request(self, _get_config):

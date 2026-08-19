@@ -83,6 +83,7 @@ class CourseSerializer(serializers.ModelSerializer):
     rating_average = serializers.SerializerMethodField("get_rating_average")
     program_term = serializers.SerializerMethodField("get_program_term")
     course_type = serializers.SerializerMethodField("get_course_type")
+    category = serializers.SerializerMethodField("get_category")
     faculties = serializers.SerializerMethodField("get_faculties")
 
     def get_code_desc(self, obj):
@@ -97,6 +98,9 @@ class CourseSerializer(serializers.ModelSerializer):
 
     def get_course_type(self, obj):
         return getattr(obj, "annotated_course_type", "UNKNOWN")
+
+    def get_category(self, obj):
+        return getattr(obj, "annotated_category", "UNKNOWN")
 
     def get_faculties(self, obj):
         return serialize_course_faculties(obj)
@@ -199,6 +203,7 @@ class CourseSerializer(serializers.ModelSerializer):
                 "rating_average",
                 "program_term",
                 "course_type",
+                "category",
                 "faculties",
             ]
         )

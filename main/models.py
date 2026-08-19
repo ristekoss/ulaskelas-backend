@@ -68,6 +68,12 @@ class StudyProgramCourse(models.Model):
         ELECTIVE = "ELECTIVE", "Pilihan"
         UNKNOWN = "UNKNOWN", "Belum diketahui"
 
+    class Category(models.TextChoices):
+        INTERNAL = "INTERNAL", "Kelas Internal"
+        SHARED = "SHARED", "Kelas Bersama"
+        EXTERNAL = "EXTERNAL", "Kelas Eksternal"
+        UNKNOWN = "UNKNOWN", "Belum diketahui"
+
     study_program = models.ForeignKey(
         StudyProgram, on_delete=models.CASCADE, related_name="course_mappings"
     )
@@ -78,6 +84,9 @@ class StudyProgramCourse(models.Model):
     curriculum = models.CharField(max_length=20, blank=True)
     course_type = models.CharField(
         max_length=16, choices=CourseType.choices, default=CourseType.UNKNOWN
+    )
+    category = models.CharField(
+        max_length=16, choices=Category.choices, default=Category.UNKNOWN
     )
     is_active = models.BooleanField(default=True)
 
@@ -90,6 +99,7 @@ class StudyProgramCourse(models.Model):
         ]
         indexes = [
             models.Index(fields=["study_program", "is_active", "program_term"]),
+            models.Index(fields=["study_program", "is_active", "category"]),
             models.Index(fields=["course_type"]),
         ]
 
