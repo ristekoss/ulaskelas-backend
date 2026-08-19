@@ -203,8 +203,11 @@ status is `ready`, and finish with
 `POST /api/slcm-autofill/sessions/{session_id}/confirm`. Cancel an unfinished
 session with `DELETE /api/slcm-autofill/sessions/{session_id}`.
 
-The remote browser defaults to a touch-enabled `430x932` viewport. Override it
-with `SLCM_BROWSER_SCREEN_WIDTH` and `SLCM_BROWSER_SCREEN_HEIGHT` when needed.
+The remote browser defaults to a touch-enabled `430x932` kiosk viewport, so
+Chromium's tabs and address bar do not consume the mobile login area. noVNC
+scales that fixed portrait framebuffer to the available frontend view, including
+when the on-screen keyboard changes its height. Override the framebuffer with
+`SLCM_BROWSER_SCREEN_WIDTH` and `SLCM_BROWSER_SCREEN_HEIGHT` when needed.
 The frontend should keep polling after opening the popup and close its popup or
 browser view when the session becomes `ready`, `failed`, `expired`, or
 `cancelled`; the course preview remains in the regular application UI.
