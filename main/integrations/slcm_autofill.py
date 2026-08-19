@@ -95,10 +95,13 @@ def mobile_screen_size():
 
 
 def configure_mobile_chrome(options):
-    """Configure Chrome for a phone-sized, touch-enabled SLCM login."""
+    """Configure Chrome as a phone-sized, touch-enabled login surface."""
     width, height = mobile_screen_size()
     options.add_argument("--window-size={},{}".format(width, height))
     options.add_argument("--force-device-scale-factor=1")
+    # noVNC is the browser chrome for this flow. Hide Chromium's own tabs and
+    # address bar so the limited portrait framebuffer is reserved for SLCM.
+    options.add_argument("--kiosk")
     options.add_experimental_option(
         "mobileEmulation",
         {
@@ -115,7 +118,7 @@ def configure_mobile_chrome(options):
 
 
 def position_mobile_window(driver):
-    """Fill the portrait virtual desktop instead of leaving a small window."""
+    """Fill the portrait virtual desktop with the kiosk browser."""
     width, height = mobile_screen_size()
     driver.set_window_rect(x=0, y=0, width=width, height=height)
 

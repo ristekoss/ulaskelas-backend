@@ -107,7 +107,7 @@ class SLCMAutofillAPITest(APITestCase):
         self.assertEqual(opened.status_code, 302)
         self.assertEqual(
             opened["Location"],
-            "https://browser.example.test/?autoconnect=1&resize=remote&show_dot=true",
+            "https://browser.example.test/?autoconnect=1&resize=scale&show_dot=true",
         )
         self.assertEqual(self.client.get(url).status_code, 404)
 
@@ -119,6 +119,7 @@ class SLCMAutofillAPITest(APITestCase):
         self.assertIs(configured, options)
         options.add_argument.assert_any_call("--window-size=430,932")
         options.add_argument.assert_any_call("--force-device-scale-factor=1")
+        options.add_argument.assert_any_call("--kiosk")
         options.add_experimental_option.assert_called_once_with(
             "mobileEmulation",
             {
