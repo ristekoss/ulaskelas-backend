@@ -36,6 +36,22 @@ def _profile(request):
     return Profile.objects.get(username=str(request.user))
 
 
+def _current_semester(profile, today=None):
+    """Calculate the student's current semester from their NPM entry year."""
+    today = today or timezone.localdate()
+    npm = (profile.npm or "").strip()
+    if len(npm) < 2 or not npm[:2].isdigit():
+        return None
+
+    entry_year = 2000 + int(npm[:2])
+    # UI's odd semester runs from August through January, followed by the even
+    # semester from February through July.
+    academic_year_start = today.year if today.month >= 8 else today.year - 1
+    semester_in_year = 1 if today.month >= 8 or today.month == 1 else 2
+    semester = (academic_year_start - entry_year) * 2 + semester_in_year
+    return str(semester) if semester > 0 else None
+
+
 def _serialize(session, include_popup=False):
     data = {
         "session_id": str(session.id),
@@ -56,8 +72,19 @@ def _serialize(session, include_popup=False):
 
 @api_view(["POST"])
 def slcm_autofill_sessions(request):
+    profile = _profile(request)
     given_semester = request.data.get("given_semester")
-    if not isinstance(given_semester, str) or not given_semester.strip():
+    if given_semester is None:
+        given_semester = _current_semester(profile)
+        if given_semester is None:
+            return response(
+                error={
+                    "code": "SEMESTER_UNAVAILABLE",
+                    "message": "Current semester cannot be determined from the user's NPM.",
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+    elif not isinstance(given_semester, str) or not given_semester.strip():
         return response(
             error={"code": "INVALID_SEMESTER", "message": "given_semester must be a non-empty string."},
             status=status.HTTP_400_BAD_REQUEST,
@@ -76,7 +103,6 @@ def slcm_autofill_sessions(request):
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
-    profile = _profile(request)
     expire_stale_sessions()
     with transaction.atomic():
         active = SLCMAutofillSession.objects.select_for_update().filter(

@@ -196,8 +196,11 @@ Configure `SLCM_IRS_URL` with the fixed IRS page and expose the remote browser
 using `SLCM_BROWSER_PUBLIC_URL`. The production Compose file includes the
 single-session Chromium/noVNC service used by the login popup.
 
-Create an authenticated session with `POST /api/slcm-autofill/sessions` and a
-JSON body such as `{"given_semester":"1"}`. Open the returned `popup_url`, poll
+Create an authenticated session with `POST /api/slcm-autofill/sessions`. The
+`given_semester` JSON field is optional: when omitted, the backend derives the
+student's current semester from their NPM entry year and the current UI academic
+period. Send a value such as `{"given_semester":"1"}` to override it manually.
+Open the returned `popup_url`, poll
 `GET /api/slcm-autofill/sessions/{session_id}`, display its preview once the
 status is `ready`, and finish with
 `POST /api/slcm-autofill/sessions/{session_id}/confirm`. Cancel an unfinished
