@@ -103,6 +103,23 @@ or use database management and input credentials provided in settings.py
 
 Now you can login with superuser you just create on <https://localhost:8000> and interact with API view OR call the API endpoint with [cURL](https://curl.haxx.se/) or [Postman](https://www.postman.com/).
 
+### Push notification reminders
+
+Register Firebase device tokens through `POST /api/device-tokens`. Production
+must set `FIREBASE_ENABLED=true` and provide either
+`FIREBASE_CREDENTIALS_BASE64` or Application Default Credentials. Firebase's
+APNs integration must be configured for iOS delivery.
+
+Configure the managed scheduler in the `Asia/Jakarta` timezone:
+
+```cron
+0 16 * * 5 python manage.py send_notification_reminders --type calculator
+5 0 * * * python manage.py send_notification_reminders --type review
+```
+
+The review command safely skips every day except the calendar month's final
+day. Both commands use database deduplication and can be retried.
+
 ### Sunjad Endpoint Used
 
 Sunjad all courses mock servers
