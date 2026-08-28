@@ -52,6 +52,7 @@ from .models import (
     ScoreSubcomponent,
 )
 from django.db.models import F
+from .push_notifications import remind_course_review_after_grade_edit
 
 logger = logging.getLogger(__name__)
 
@@ -526,6 +527,7 @@ def course_component(request):
         score_component_value = ScoreComponent.objects.filter(
             calculator=calculator, name=name, weight=weight, score=score
         ).first()
+        remind_course_review_after_grade_edit(calculator)
         return response(
             data=ScoreComponentSerializer(score_component_value).data,
             status=status.HTTP_201_CREATED,
@@ -707,6 +709,7 @@ def course_subcomponent(request):
         score_component_value = ScoreComponent.objects.filter(
             calculator=calculator, name=name, weight=weight, score=stored_component_score
         ).first()
+        remind_course_review_after_grade_edit(calculator)
         return response(
             data=ScoreComponentSerializer(score_component_value).data,
             status=status.HTTP_201_CREATED,
@@ -812,6 +815,7 @@ def course_subcomponent(request):
         score_component_value = ScoreComponent.objects.filter(
             calculator=calculator, name=name, weight=weight, score=stored_component_score
         ).first()
+        remind_course_review_after_grade_edit(calculator)
         return response(
             data=ScoreComponentSerializer(score_component_value).data,
             status=status.HTTP_201_CREATED,

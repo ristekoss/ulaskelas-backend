@@ -7,6 +7,7 @@ from .serializers import CalculatorSerializer, ScoreComponentSerializer
 from .utils import response, validate_body, validate_params
 from .models import Calculator, Profile, Course, ScoreComponent
 from django.db.models import F
+from .push_notifications import remind_course_review_after_grade_edit
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,7 @@ def score_component(request):
         calculator.total_percentage += weight
 
         calculator.save()
+        remind_course_review_after_grade_edit(calculator)
         
         return response(data=ScoreComponentSerializer(score_component).data, status=status.HTTP_201_CREATED)
 
@@ -130,6 +132,7 @@ def score_component(request):
         calculator.total_percentage += score_component.weight
 
         calculator.save()
+        remind_course_review_after_grade_edit(calculator)
         return response(data=ScoreComponentSerializer(score_component).data, status=status.HTTP_201_CREATED)
 
     if request.method == 'DELETE':

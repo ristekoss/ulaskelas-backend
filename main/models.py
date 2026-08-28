@@ -200,6 +200,53 @@ class Calculator(models.Model):
     total_percentage = models.FloatField(default=0)
 
 
+class DeviceToken(models.Model):
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+
+    user = models.ForeignKey(Profile, on_delete=CASCADE, related_name="device_tokens")
+    token = models.TextField(unique=True)
+    platform = models.CharField(max_length=16, choices=Platform.choices)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class Notification(models.Model):
+    class Type(models.TextChoices):
+        CALCULATOR_REMINDER = "calculator_reminder", "Calculator reminder"
+        COURSE_REVIEW_REMINDER = "course_review_reminder", "Course review reminder"
+
+    class Target(models.TextChoices):
+        GRADE_CALCULATOR = "grade_calculator", "Grade calculator"
+        COURSE_REVIEW = "course_review", "Course review"
+
+    user = models.ForeignKey(Profile, on_delete=CASCADE, related_name="notifications")
+    type = models.CharField(max_length=32, choices=Type.choices)
+    title = models.CharField(max_length=127)
+    body = models.CharField(max_length=255)
+    target = models.CharField(max_length=32, choices=Target.choices)
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True)
+    dedupe_key = models.CharField(max_length=127)
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["user", "dedupe_key"],
+                name="unique_user_notification_dedupe",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "read_at", "-created_at"],
+                name="notif_user_unread_created_idx",
+            )
+        ]
+
+
 class ScoreComponent(models.Model):
     """
     Score component for calculator

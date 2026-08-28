@@ -15,6 +15,13 @@ from .views_gpa_calculator import (
 from .views_calculator import calculator, score_component
 from .views import like, tag, bookmark, account, leaderboard
 from .views_review import ds_review, review
+from .views_notification import (
+    device_token,
+    notification_read,
+    notification_unread_count,
+    notifications,
+    notifications_read_all,
+)
 from .views_course import CourseViewSet, majors
 from .views_slcm_autofill import (
     slcm_autofill_confirm,
@@ -59,4 +66,21 @@ urlpatterns = [
     path("course-subcomponent", course_subcomponent, name="course-subcomponent"),
     path("tanya-teman", tanya_teman, name="tanya-teman"),
     path("jawab-teman", jawab_teman, name="jawab-teman"),
+    path("device-tokens", device_token, name="device-token"),
+    path("notifications", notifications, name="notifications"),
+    path(
+        "notifications/unread-count",
+        notification_unread_count,
+        name="notification-unread-count",
+    ),
+    path(
+        "notifications/read-all",
+        notifications_read_all,
+        name="notifications-read-all",
+    ),
+    path(
+        "notifications/<int:notification_id>/read",
+        notification_read,
+        name="notification-read",
+    ),
 ] + router.urls
