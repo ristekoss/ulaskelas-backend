@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import User
@@ -45,6 +45,39 @@ class SLCMAutofillAPITest(APITestCase):
         )
         self.assertEqual(duplicate.status_code, 409)
         self.assertEqual(duplicate.data["error"]["code"], "SESSION_ALREADY_ACTIVE")
+
+    @patch("main.views_slcm_autofill.timezone.localdate", return_value=date(2026, 8, 24))
+    @patch("main.views_slcm_autofill.start_scraper")
+    def test_create_session_defaults_to_current_odd_semester(
+        self, _start_scraper, _localdate
+    ):
+        result = self.client.post("/api/slcm-autofill/sessions", {}, format="json")
+
+        self.assertEqual(result.status_code, 201)
+        self.assertEqual(result.data["data"]["given_semester"], "9")
+        self.assertEqual(SLCMAutofillSession.objects.get().given_semester, "9")
+
+    @patch("main.views_slcm_autofill.timezone.localdate", return_value=date(2026, 2, 1))
+    @patch("main.views_slcm_autofill.start_scraper")
+    def test_create_session_defaults_to_current_even_semester(
+        self, _start_scraper, _localdate
+    ):
+        result = self.client.post("/api/slcm-autofill/sessions", {}, format="json")
+
+        self.assertEqual(result.status_code, 201)
+        self.assertEqual(result.data["data"]["given_semester"], "8")
+
+    @patch("main.views_slcm_autofill.start_scraper")
+    def test_create_session_rejects_auto_semester_when_npm_is_invalid(
+        self, _start_scraper
+    ):
+        self.profile.npm = "invalid"
+        self.profile.save(update_fields=["npm"])
+
+        result = self.client.post("/api/slcm-autofill/sessions", {}, format="json")
+
+        self.assertEqual(result.status_code, 422)
+        self.assertEqual(result.data["error"]["code"], "SEMESTER_UNAVAILABLE")
 
     @patch("main.views_slcm_autofill.start_scraper")
     def test_status_is_owner_only_and_cancel_marks_session(self, _start_scraper):
