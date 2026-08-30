@@ -50,6 +50,7 @@ from .models import (
     Answer,
     get_attachment_presigned_url,
 )
+from .moderation import contains_trigger_word
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 import boto3
@@ -75,6 +76,12 @@ def tanya_teman(request):
 
         attachment_file = serializer.validated_data.get("attachment_file", None)
         question_text = serializer.validated_data["question_text"]
+        is_detected = contains_trigger_word(question_text)
+        verification_status = (
+            Question.VerificationStatus.WAITING
+            if is_detected
+            else Question.VerificationStatus.APPROVED
+        )
         course_id = serializer.validated_data.get("course_id", None)
         is_anonym = serializer.validated_data["is_anonym"]
 
@@ -105,13 +112,17 @@ def tanya_teman(request):
             course=course,
             is_anonym=is_anonym,
             attachment=key,
+            verification_status=verification_status,
         )
 
         question_admin_url = build_admin_change_url(
             "question", question.id, legacy_link_env="ULASKELAS_QUESTION_LINK"
         )
         send_submission_notification(
-            subject=f"New Question (ID {question.pk}) by {user.username}",
+            subject=(
+                f"{'[DETECTED] ' if is_detected else ''}"
+                f"New Question (ID {question.pk}) by {user.username}"
+            ),
             message=f"""A new question with id={question.pk} has been posted by {user.username}. 
           \n\nQuestion text: {question_text}.
           \n\nQuestion Link: {question_admin_url}
@@ -121,7 +132,15 @@ def tanya_teman(request):
         )
 
         return response(
-            data={"message": "Image uploaded successfully", "key": key},
+            data={
+                "message": "Image uploaded successfully",
+                "key": key,
+                "moderation_status": (
+                    "WAITING"
+                    if verification_status == Question.VerificationStatus.WAITING
+                    else "APPROVED"
+                ),
+            },
             status=status.HTTP_200_OK,
         )
 
@@ -193,6 +212,12 @@ def jawab_teman(request):
 
         attachment_file = serializer.validated_data.get("attachment_file", None)
         answer_text = serializer.validated_data["answer_text"]
+        is_detected = contains_trigger_word(answer_text)
+        verification_status = (
+            Answer.VerificationStatus.WAITING
+            if is_detected
+            else Answer.VerificationStatus.APPROVED
+        )
         question_id = serializer.validated_data["question_id"]
         is_anonym = serializer.validated_data["is_anonym"]
 
@@ -218,6 +243,7 @@ def jawab_teman(request):
             question=question,
             is_anonym=is_anonym,
             attachment=key,
+            verification_status=verification_status,
         )
         question.reply_count += 1
         question.save()
@@ -226,7 +252,10 @@ def jawab_teman(request):
             "answer", answer.id, legacy_link_env="ULASKELAS_ANSWER_LINK"
         )
         send_submission_notification(
-            subject=f"New Answer (ID {answer.pk}) by {user.username}",
+            subject=(
+                f"{'[DETECTED] ' if is_detected else ''}"
+                f"New Answer (ID {answer.pk}) by {user.username}"
+            ),
             message=f"""A new answer with id={answer.pk} has been posted by {user.username}.
           \n\nRespective Question: {question.question_text}
           \n\nAnswer text: {answer_text}.
@@ -237,7 +266,15 @@ def jawab_teman(request):
         )
 
         return response(
-            data={"message": "Image uploaded successfully", "key": key},
+            data={
+                "message": "Image uploaded successfully",
+                "key": key,
+                "moderation_status": (
+                    "WAITING"
+                    if verification_status == Answer.VerificationStatus.WAITING
+                    else "APPROVED"
+                ),
+            },
             status=status.HTTP_200_OK,
         )
 
@@ -299,7 +336,14 @@ def jawab_teman(request):
 
 def tanya_teman_with_id(request, id):
     user = Profile.objects.get(username=str(request.user))
-    question = Question.objects.filter(pk=id).first()
+    question = (
+        Question.objects.filter(pk=id)
+        .filter(
+            Q(verification_status=Question.VerificationStatus.APPROVED)
+            | Q(user=user)
+        )
+        .first()
+    )
     if question is None:
         return response(error="No matching question", status=status.HTTP_404_NOT_FOUND)
 
