@@ -198,6 +198,13 @@ NOTIFICATION_RECIPIENT_EMAILS = resolve_notification_recipients(
     env.list("NOTIFICATION_RECIPIENT_EMAILS", default=[]),
     env("NOTIFICATION_RECIPIENT_EMAIL", default=""),
 )
+MODERATION_TRIGGER_WORDS = tuple(
+    word.strip() for word in env.list("MODERATION_TRIGGER_WORDS") if word.strip()
+)
+if not MODERATION_TRIGGER_WORDS:
+    raise ImproperlyConfigured(
+        "MODERATION_TRIGGER_WORDS must contain at least one trigger word"
+    )
 USE_RISTEK_MAILER = env.bool("USE_RISTEK_MAILER", default=False)
 MAILER_BASE_URL = env("MAILER_BASE_URL", default="")
 MAILER_BASIC_USER = env("MAILER_BASIC_USER", default="ulaskelas")

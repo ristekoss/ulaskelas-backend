@@ -165,7 +165,8 @@ class Review(models.Model):
         """On save, update timestamps"""
         if not self.id:
             self.created_at = timezone.now()
-            self.hate_speech_status = "WAITING"
+            if not self.hate_speech_status:
+                self.hate_speech_status = self.HateSpeechStatus.WAITING
         self.updated_at = timezone.now()
         return super(Review, self).save(*args, **kwargs)
 
