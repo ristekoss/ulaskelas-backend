@@ -198,11 +198,32 @@ NOTIFICATION_RECIPIENT_EMAILS = resolve_notification_recipients(
     env.list("NOTIFICATION_RECIPIENT_EMAILS", default=[]),
     env("NOTIFICATION_RECIPIENT_EMAIL", default=""),
 )
+MODERATION_TRIGGER_WORDS = tuple(
+    word.strip() for word in env.list("MODERATION_TRIGGER_WORDS") if word.strip()
+)
+if not MODERATION_TRIGGER_WORDS:
+    raise ImproperlyConfigured(
+        "MODERATION_TRIGGER_WORDS must contain at least one trigger word"
+    )
 USE_RISTEK_MAILER = env.bool("USE_RISTEK_MAILER", default=False)
 MAILER_BASE_URL = env("MAILER_BASE_URL", default="")
 MAILER_BASIC_USER = env("MAILER_BASIC_USER", default="ulaskelas")
 MAILER_AUTH_TOKEN = env("MAILER_AUTH_TOKEN", default="")
 MAILER_TIMEOUT_SECONDS = env.int("MAILER_TIMEOUT_SECONDS", default=10)
+SLCM_IRS_URL = env("SLCM_IRS_URL", default="")
+SLCM_BROWSER_REMOTE_URL = env(
+    "SLCM_BROWSER_REMOTE_URL", default="http://slcm-browser:4444/wd/hub"
+)
+SLCM_BROWSER_PUBLIC_URL = env(
+    "SLCM_BROWSER_PUBLIC_URL", default="http://localhost:7900"
+)
+SLCM_AUTOFILL_TIMEOUT_SECONDS = env.int(
+    "SLCM_AUTOFILL_TIMEOUT_SECONDS", default=300
+)
+SLCM_BROWSER_SCREEN_WIDTH = env.int("SLCM_BROWSER_SCREEN_WIDTH", default=430)
+SLCM_BROWSER_SCREEN_HEIGHT = env.int("SLCM_BROWSER_SCREEN_HEIGHT", default=932)
+FIREBASE_ENABLED = env.bool("FIREBASE_ENABLED", default=False)
+FIREBASE_CREDENTIALS_BASE64 = env("FIREBASE_CREDENTIALS_BASE64", default="")
 SSO_UI_FORCE_SERVICE_HTTPS: True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True

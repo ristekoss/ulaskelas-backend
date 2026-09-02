@@ -35,14 +35,29 @@ def refresh_courses(request):
     """
     start = datetime.now()
     profile = request.user.profile_set.get()
-    courseApi.update_courses(profile.org_code)
+    try:
+        sync_result = courseApi.update_courses(profile.org_code)
+    except courseApi.CourseCatalogUnavailable as exc:
+        logger.warning("Course catalog unavailable for org_code=%s", profile.org_code)
+        return Response(
+            {
+                "error": {
+                    "code": "COURSE_CATALOG_UNAVAILABLE",
+                    "message": str(exc),
+                }
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+    except courseApi.CourseSyncError as exc:
+        logger.exception("Course update failed for org_code=%s", profile.org_code)
+        return Response({"message": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
 
     finish = datetime.now()
 
     latency = (finish - start).seconds
     time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     message = "Course updated succeed on %s, elapsed time: %s seconds" % (time, latency)
-    return Response({"message": message})
+    return Response({"message": message, "sync": sync_result})
 
 
 @api_view(["GET"])
@@ -80,13 +95,14 @@ def login(request, sso_profile):
     """
     if sso_profile is not None:
         redirect_url = request.query_params.get("redirect_url")
-        token = process_sso_profile(sso_profile)
+        token, is_new_user = process_sso_profile(sso_profile)
         username = sso_profile["username"]
+        is_new_user_str = "true" if is_new_user else "false"
         if redirect_url is None:
             return HttpResponseRedirect(
-                "/token?token=%s&username=%s" % (token, username)
+                "/token?token=%s&username=%s&is_new_user=%s" % (token, username, is_new_user_str)
             )
-        return redirect("%s?token=%s&username=%s" % (redirect_url, token, username))
+        return redirect("%s?token=%s&username=%s&is_new_user=%s" % (redirect_url, token, username, is_new_user_str))
 
     data = {"message": "invalid sso"}
     return Response(data=data, status=status.HTTP_401_UNAUTHORIZED)
@@ -262,4 +278,3 @@ def update_leaderboard(request):
         latency,
     )
     return Response({"message": message})
-

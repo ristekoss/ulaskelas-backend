@@ -20,10 +20,28 @@ services:
       - ./.env:/opt/app/.env:ro
     environment:
       - PORT=8009
+      - SLCM_BROWSER_REMOTE_URL=http://slcm-browser:4444/wd/hub
+      - SLCM_BROWSER_PUBLIC_URL=${SLCM_BROWSER_PUBLIC_URL:-http://localhost:7900}
+      - SLCM_IRS_URL=${SLCM_IRS_URL:-https://slcm.ui.ac.id/}
     ports:
       - "8009:8009"
     depends_on:
       - postgres
+      - slcm-browser
+
+  slcm-browser:
+    image: selenium/standalone-chromium:4.27.0-20241204
+    shm_size: 2gb
+    environment:
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=false
+      - SE_VNC_NO_PASSWORD=1
+      - SE_SCREEN_WIDTH=${SLCM_BROWSER_SCREEN_WIDTH:-430}
+      - SE_SCREEN_HEIGHT=${SLCM_BROWSER_SCREEN_HEIGHT:-932}
+      - SE_SCREEN_DEPTH=24
+    ports:
+      - "7900:7900"
+    restart: unless-stopped
 
 volumes:
   ulas_db:

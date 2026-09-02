@@ -11,6 +11,7 @@ from django.db import transaction
 from django.db.models import Q
 
 from .models import Course, Review, Profile, ReviewLike, ReviewTag, Tag
+from .moderation import contains_trigger_word
 from .serializers import ReviewDSSerializer, ReviewSerializer
 import logging
 
@@ -110,6 +111,12 @@ def review(request):
         academic_year = request.data.get("academic_year")
         semester = request.data.get("semester")
         content = request.data.get("content")
+        is_detected = contains_trigger_word(content)
+        moderation_status = (
+            Review.HateSpeechStatus.WAITING
+            if is_detected
+            else Review.HateSpeechStatus.APPROVED
+        )
         is_anonym = request.data.get("is_anonym")
         rating_understandable = request.data.get("rating_understandable") or 0
         rating_fit_to_credit = request.data.get("rating_fit_to_credit") or 0
@@ -127,6 +134,7 @@ def review(request):
                         academic_year=academic_year,
                         semester=semester,
                         content=content,
+                        hate_speech_status=moderation_status,
                         is_anonym=is_anonym,
                         rating_understandable=rating_understandable,
                         rating_fit_to_credit=rating_fit_to_credit,
@@ -140,6 +148,7 @@ def review(request):
                         academic_year=academic_year,
                         semester=semester,
                         content=content,
+                        hate_speech_status=moderation_status,
                         is_anonym=is_anonym,
                         rating_understandable=rating_understandable,
                         rating_fit_to_credit=rating_fit_to_credit,
@@ -161,8 +170,11 @@ def review(request):
         course_name = review.course.name if review.course else "-"
         course_code = review.course.code if review.course else "-"
         send_submission_notification(
-            subject=f"New Review (ID {review.pk}) by {user.username}",
-            message=f"""A new review with id={review.pk} has been posted by {user.username}.
+            subject=(
+                f"{'[DETECTED] ' if is_detected else ''}"
+                f"TemanKuliah — Review Baru: {course_name}"
+            ),
+            message=f"""A new review with id={review.pk} has been posted by {'Anonim' if is_anonym else user.username}.
           \n\nCourse: {course_code} - {course_name}
           \n\nAcademic Year: {academic_year}
           \n\nSemester: {semester}
@@ -172,9 +184,9 @@ def review(request):
             object_id=review.id,
         )
 
-        return response(
-            data=ReviewSerializer(review).data, status=status.HTTP_201_CREATED
-        )
+        response_data = ReviewSerializer(review).data
+        response_data["moderation_status"] = moderation_status
+        return response(data=response_data, status=status.HTTP_201_CREATED)
 
     if request.method == "PUT":
         is_valid = validate_body(request, ["review_id", "content"])
@@ -190,12 +202,37 @@ def review(request):
                 error="Review does not exist", status=status.HTTP_409_CONFLICT
             )
 
+        previous_status = review.hate_speech_status
+        is_detected = contains_trigger_word(content)
+        moderation_status = (
+            Review.HateSpeechStatus.WAITING
+            if is_detected
+            else Review.HateSpeechStatus.APPROVED
+        )
         review.content = content
+        review.hate_speech_status = moderation_status
         review.save()
 
-        return response(
-            data=ReviewSerializer(review).data, status=status.HTTP_201_CREATED
-        )
+        if (
+            moderation_status == Review.HateSpeechStatus.WAITING
+            and previous_status != Review.HateSpeechStatus.WAITING
+        ):
+            review_admin_url = build_admin_change_url("review", review.id)
+            course_name = review.course.name if review.course else "-"
+            course_code = review.course.code if review.course else "-"
+            send_submission_notification(
+                subject=f"[DETECTED] TemanKuliah — Review Baru: {course_name}",
+                message=f"""A review with id={review.pk} has been edited by {'Anonim' if review.is_anonym else user.username} and requires moderation.
+          \n\nCourse: {course_code} - {course_name}
+          \n\nReview text: {content}
+          \n\nReview Link: {review_admin_url}""",
+                event_type="review",
+                object_id=review.id,
+            )
+
+        response_data = ReviewSerializer(review).data
+        response_data["moderation_status"] = moderation_status
+        return response(data=response_data, status=status.HTTP_201_CREATED)
 
     if request.method == "DELETE":
         is_valid = validate_params(request, ["review_id"])
@@ -259,7 +296,14 @@ def create_review_tag(review, tags):
 
 def get_review_by_id(request, user_id):
     id = request.query_params.get("id")
-    review = Review.objects.filter(id=id).filter(is_active=True).first()
+    review = (
+        Review.objects.filter(id=id, is_active=True)
+        .filter(
+            Q(hate_speech_status=Review.HateSpeechStatus.APPROVED)
+            | Q(user_id=user_id)
+        )
+        .first()
+    )
     if review == None:
         return response(error="Review ID not found", status=status.HTTP_404_NOT_FOUND)
 

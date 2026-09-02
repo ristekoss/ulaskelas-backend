@@ -16,11 +16,26 @@ from .models import (
     UserCumulativeGPA,
     UserGPA,
     ScoreSubcomponent,
+    StudyProgramCourse,
 )
-from .fasilkom_courses import IK_COURSES, SI_COURSES
+
+
+def normalize_score(score):
+    """Normalize empty score inputs to the null value used by the database."""
+    return None if score is None or score == "" else score
+
+
+def calculate_average(scores):
+    """Average only scores that have been filled in."""
+    filled_scores = [normalize_score(score) for score in scores]
+    filled_scores = [score for score in filled_scores if score is not None]
+    if not filled_scores:
+        return None
+    return sum(filled_scores) / len(filled_scores)
 
 
 def process_sso_profile(sso_profile):
+    is_new_user = False
     try:
         user = User.objects.get(username__iexact=sso_profile["username"])
         token, _ = Token.objects.get_or_create(user=user)
@@ -30,7 +45,8 @@ def process_sso_profile(sso_profile):
         user.save()
         generate_user_profile(user, sso_profile)
         token = Token.objects.create(user=user)
-    return token.key
+        is_new_user = True
+    return token.key, is_new_user
 
 
 def generate_user_profile(user, sso_profile):
@@ -101,7 +117,16 @@ def get_paged_obj(objs, page, _sort_by_id=True):
     if _sort_by_id:
         objs = objs.order_by("id")
     paginator = Paginator(objs, 10)
-    objs = paginator.get_page(page)
+    try:
+        page_number = int(page)
+    except (ValueError, TypeError):
+        page_number = 1
+
+    if page_number > paginator.num_pages:
+        objs = []
+    else:
+        objs = paginator.get_page(page_number)
+
     return objs, paginator.num_pages
 
 
@@ -211,19 +236,29 @@ def get_course_by_code(course_code):
     return Course.objects.filter(code=course_code).first()
 
 
-def get_fasilkom_courses(study_program):
-    courses_by_program = IK_COURSES if "Ilmu Komputer" in study_program else SI_COURSES
-    study_program_courses = [[]]
-    for term in range(1, 9):
-        courses_in_term = courses_by_program[term]
-        term_course = []
-        for course_code in courses_in_term:
-            course = get_course_by_code(course_code)
-            if course != None:
-                term_course.append(course)
+def get_courses_by_program_term(org_code):
+    """Return active courses grouped by their program-specific curriculum term."""
+    mappings = (
+        StudyProgramCourse.objects.filter(
+            study_program_id=org_code,
+            study_program__is_supported=True,
+            is_active=True,
+        )
+        .select_related("course")
+        .order_by("program_term", "course__name")
+    )
+    courses_by_term = {}
+    for mapping in mappings:
+        courses_by_term.setdefault(mapping.program_term, []).append(mapping.course)
+    return courses_by_term
 
-        study_program_courses.append(term_course)
-    return study_program_courses
+
+def is_course_catalog_available(org_code):
+    return StudyProgramCourse.objects.filter(
+        study_program_id=org_code,
+        study_program__is_supported=True,
+        is_active=True,
+    ).exists()
 
 
 def get_score(score: float) -> float:
@@ -273,6 +308,76 @@ def get_null_sum_from_calculator(calculator: Calculator) -> float:
     return null_sum
 
 
+def get_calculator_status(calculator: Calculator) -> dict:
+    """Return the user-facing completeness status for a course calculator.
+
+    Weight completeness takes precedence over missing subcomponent scores so
+    the API always returns one deterministic status for a course.
+    """
+    if calculator.total_percentage < 100:
+        return {
+            "code": "WEIGHT_INCOMPLETE",
+            "label": "Bobot belum terisi",
+        }
+
+    has_missing_score = ScoreSubcomponent.objects.filter(
+        score_component__calculator=calculator,
+        subcomponent_score__isnull=True,
+    ).exists()
+    if has_missing_score:
+        return {
+            "code": "SCORE_INCOMPLETE",
+            "label": "Nilai ada yang belum terisi",
+        }
+
+    return {
+        "code": "COMPLETE",
+        "label": "Nilai lengkap",
+    }
+
+
+def get_calculator_progress(calculator: Calculator) -> dict:
+    """Return weight and score completion progress for a calculator."""
+    if calculator is None:
+        return {
+            "weight_progress": {"filled": 0, "total": 100, "percentage": 0},
+            "score_progress": {"filled": 0, "total": 0, "percentage": 0},
+        }
+
+    score_components = ScoreComponent.objects.filter(calculator=calculator)
+    score_total = 0
+    score_filled = 0
+    for score_component in score_components:
+        subcomponents = ScoreSubcomponent.objects.filter(
+            score_component=score_component
+        )
+        subcomponent_count = subcomponents.count()
+        if subcomponent_count == 0:
+            score_total += 1
+            score_filled += 1
+            continue
+
+        score_total += subcomponent_count
+        score_filled += subcomponents.filter(subcomponent_score__isnull=False).count()
+
+    score_percentage = round(score_filled / score_total * 100) if score_total else 0
+    weight_filled = calculator.total_percentage
+    weight_percentage = min(round(weight_filled), 100)
+
+    return {
+        "weight_progress": {
+            "filled": weight_filled,
+            "total": 100,
+            "percentage": weight_percentage,
+        },
+        "score_progress": {
+            "filled": score_filled,
+            "total": score_total,
+            "percentage": score_percentage,
+        },
+    }
+
+
 def get_recommended_score(calculator: Calculator, target_score: int) -> float:
     current_score = calculator.total_score
     score_left = max(target_score - current_score, 0)
@@ -303,4 +408,3 @@ def get_paged_questions(questions, page):
     paginator = Paginator(questions, 10)
     questions = paginator.get_page(page)
     return questions, paginator.num_pages
-

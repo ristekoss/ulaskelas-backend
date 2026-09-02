@@ -1,4 +1,5 @@
 import mimetypes
+import uuid
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.deletion import CASCADE
@@ -43,6 +44,64 @@ class Course(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class StudyProgram(models.Model):
+    """A UI study program identified by the org code used by SSO and SunJad."""
+
+    org_code = models.CharField(max_length=63, primary_key=True)
+    faculty = models.CharField(max_length=127)
+    study_program = models.CharField(max_length=127)
+    educational_program = models.CharField(max_length=127)
+    is_supported = models.BooleanField(default=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return "{} - {}".format(self.faculty, self.study_program)
+
+
+class StudyProgramCourse(models.Model):
+    """Program-specific course metadata supplied by SunJad."""
+
+    class CourseType(models.TextChoices):
+        MANDATORY = "MANDATORY", "Wajib"
+        ELECTIVE = "ELECTIVE", "Pilihan"
+        UNKNOWN = "UNKNOWN", "Belum diketahui"
+
+    class Category(models.TextChoices):
+        INTERNAL = "INTERNAL", "Kelas Internal"
+        SHARED = "SHARED", "Kelas Bersama"
+        EXTERNAL = "EXTERNAL", "Kelas Eksternal"
+        UNKNOWN = "UNKNOWN", "Belum diketahui"
+
+    study_program = models.ForeignKey(
+        StudyProgram, on_delete=models.CASCADE, related_name="course_mappings"
+    )
+    course = models.ForeignKey(
+        Course, on_delete=models.CASCADE, related_name="study_program_courses"
+    )
+    program_term = models.PositiveSmallIntegerField()
+    curriculum = models.CharField(max_length=20, blank=True)
+    course_type = models.CharField(
+        max_length=16, choices=CourseType.choices, default=CourseType.UNKNOWN
+    )
+    category = models.CharField(
+        max_length=16, choices=Category.choices, default=Category.UNKNOWN
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["study_program", "course"],
+                name="unique_study_program_course",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["study_program", "is_active", "program_term"]),
+            models.Index(fields=["study_program", "is_active", "category"]),
+            models.Index(fields=["course_type"]),
+        ]
 
 
 class Profile(models.Model):
@@ -97,11 +156,17 @@ class Review(models.Model):
     rating_beneficial = models.FloatField(null=True, default=0)
     rating_recommended = models.FloatField(null=True, default=0)
 
+    def __str__(self):
+        course_name = self.course.name if self.course else "Unknown Course"
+        username = self.user.username if self.user else "Unknown User"
+        return f"Review by {username} for {course_name}"
+
     def save(self, *args, **kwargs):
         """On save, update timestamps"""
         if not self.id:
             self.created_at = timezone.now()
-            self.hate_speech_status = "WAITING"
+            if not self.hate_speech_status:
+                self.hate_speech_status = self.HateSpeechStatus.WAITING
         self.updated_at = timezone.now()
         return super(Review, self).save(*args, **kwargs)
 
@@ -134,6 +199,53 @@ class Calculator(models.Model):
     course = models.ForeignKey(Course, on_delete=CASCADE)
     total_score = models.FloatField(default=0)
     total_percentage = models.FloatField(default=0)
+
+
+class DeviceToken(models.Model):
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+
+    user = models.ForeignKey(Profile, on_delete=CASCADE, related_name="device_tokens")
+    token = models.TextField(unique=True)
+    platform = models.CharField(max_length=16, choices=Platform.choices)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class Notification(models.Model):
+    class Type(models.TextChoices):
+        CALCULATOR_REMINDER = "calculator_reminder", "Calculator reminder"
+        COURSE_REVIEW_REMINDER = "course_review_reminder", "Course review reminder"
+
+    class Target(models.TextChoices):
+        GRADE_CALCULATOR = "grade_calculator", "Grade calculator"
+        COURSE_REVIEW = "course_review", "Course review"
+
+    user = models.ForeignKey(Profile, on_delete=CASCADE, related_name="notifications")
+    type = models.CharField(max_length=32, choices=Type.choices)
+    title = models.CharField(max_length=127)
+    body = models.CharField(max_length=255)
+    target = models.CharField(max_length=32, choices=Target.choices)
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True)
+    dedupe_key = models.CharField(max_length=127)
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["user", "dedupe_key"],
+                name="unique_user_notification_dedupe",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "read_at", "-created_at"],
+                name="notif_user_unread_created_idx",
+            )
+        ]
 
 
 class ScoreComponent(models.Model):
@@ -192,6 +304,41 @@ class CourseSemester(models.Model):
         constraints = [
             UniqueConstraint(
                 fields=["semester", "course"], name="unique_semester_course"
+            )
+        ]
+
+
+class SLCMAutofillSession(models.Model):
+    class Status(models.TextChoices):
+        WAITING_LOGIN = "waiting_login", "Waiting for login"
+        SCRAPING = "scraping", "Scraping"
+        READY = "ready", "Ready"
+        IMPORTED = "imported", "Imported"
+        FAILED = "failed", "Failed"
+        EXPIRED = "expired", "Expired"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(Profile, on_delete=CASCADE)
+    given_semester = models.CharField(max_length=20)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.WAITING_LOGIN
+    )
+    popup_token_hash = models.CharField(max_length=64, unique=True)
+    popup_opened_at = models.DateTimeField(null=True, blank=True)
+    popup_url = models.TextField(blank=True)
+    source_period = models.CharField(max_length=127, blank=True)
+    preview = models.JSONField(default=dict, blank=True)
+    error = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["user", "status"],
+                name="main_slcmaf_user_id_d7a931_idx",
             )
         ]
 
