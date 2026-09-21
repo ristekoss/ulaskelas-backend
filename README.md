@@ -120,6 +120,38 @@ Configure the managed scheduler in the `Asia/Jakarta` timezone:
 The review command safely skips every day except the calendar month's final
 day. Both commands use database deduplication and can be retried.
 
+For a self-managed VPS, install the systemd units from `deploy/systemd`. Update
+`WorkingDirectory` in both service files when the checkout is not located at
+`/opt/teman-kuliah`, then run:
+
+```bash
+sudo cp deploy/systemd/teman-kuliah-notification-* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now \
+  teman-kuliah-notification-calculator.timer \
+  teman-kuliah-notification-review.timer
+systemctl list-timers 'teman-kuliah-notification-*'
+```
+
+Inspect job output with:
+
+```bash
+journalctl -u teman-kuliah-notification-calculator.service
+journalctl -u teman-kuliah-notification-review.service
+```
+
+Before sending a reminder, inspect eligibility without changing the database or
+calling Firebase:
+
+```bash
+python manage.py send_notification_reminders \
+  --type calculator --dry-run
+python manage.py diagnose_push_notifications --username example.username
+```
+
+The diagnostic command reports only counts and configuration presence. It never
+prints Firebase credentials or device-token values.
+
 ### Sunjad Endpoint Used
 
 Sunjad all courses mock servers

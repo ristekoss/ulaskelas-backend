@@ -1,0 +1,9 @@
+[Unit]
+Description=Teman Kuliah monthly course-review notification
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/teman-kuliah
+ExecStart=/usr/bin/docker compose -f docker-compose-prod.yml exec -T server python manage.py send_notification_reminders --type review

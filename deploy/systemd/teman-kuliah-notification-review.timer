@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Teman Kuliah course-review notification daily at 00:05 WIB
+
+[Timer]
+OnCalendar=*-*-* 00:05:00 Asia/Jakarta
+Persistent=true
+Unit=teman-kuliah-notification-review.service
+
+[Install]
+WantedBy=timers.target
