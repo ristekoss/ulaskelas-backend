@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 import pytz
 
-from main.models import Calculator, Notification, Profile, Review
+from main.models import Calculator, DeviceToken, Notification, Profile, Review
 from main.push_notifications import CALCULATOR_BODY, COURSE_REVIEW_BODY, create_notification
 
 
@@ -17,6 +17,11 @@ class Command(BaseCommand):
         parser.add_argument(
             "--date",
             help="Override Asia/Jakarta date (YYYY-MM-DD), for operations/testing",
+        )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Report eligible recipients without creating notifications or sending push messages",
         )
 
     def handle(self, *args, **options):
@@ -30,7 +35,7 @@ class Command(BaseCommand):
             raise CommandError("--date must use YYYY-MM-DD") from exc
 
         if options["type"] == "calculator":
-            created = self._calculator(current_date)
+            result = self._calculator(current_date, options["dry_run"])
         else:
             last_day = calendar.monthrange(current_date.year, current_date.month)[1]
             if current_date.day != last_day:
@@ -40,30 +45,57 @@ class Command(BaseCommand):
                     )
                 )
                 return
-            created = self._review(current_date)
+            result = self._review(current_date, options["dry_run"])
         self.stdout.write(
-            self.style.SUCCESS("Created {} notification(s)".format(created))
+            self.style.SUCCESS(
+                "{}: eligible={}, active_devices={}, created={}, deduplicated={}".format(
+                    "Dry run" if options["dry_run"] else "Completed",
+                    result["eligible"],
+                    result["active_devices"],
+                    result["created"],
+                    result["deduplicated"],
+                )
+            )
         )
 
-    def _calculator(self, current_date):
+    @staticmethod
+    def _result():
+        return {"eligible": 0, "active_devices": 0, "created": 0, "deduplicated": 0}
+
+    @staticmethod
+    def _active_device_count(profile):
+        return DeviceToken.objects.filter(user=profile, is_active=True).count()
+
+    def _calculator(self, current_date, dry_run=False):
         iso_year, iso_week, _ = current_date.isocalendar()
         profiles = Profile.objects.filter(calculator__isnull=False).distinct()
-        created = 0
+        result = self._result()
+        dedupe_key = "calculator:{}-{:02d}".format(iso_year, iso_week)
         for profile in profiles.iterator():
+            result["eligible"] += 1
+            result["active_devices"] += self._active_device_count(profile)
+            if Notification.objects.filter(user=profile, dedupe_key=dedupe_key).exists():
+                result["deduplicated"] += 1
+                continue
+            if dry_run:
+                result["created"] += 1
+                continue
             item = create_notification(
                 user=profile,
                 notification_type=Notification.Type.CALCULATOR_REMINDER,
                 title="Reminder Kalkulator",
                 body=CALCULATOR_BODY,
                 target=Notification.Target.GRADE_CALCULATOR,
-                dedupe_key="calculator:{}-{:02d}".format(iso_year, iso_week),
+                dedupe_key=dedupe_key,
             )
-            created += item is not None
-        return created
+            result["created"] += item is not None
+            result["deduplicated"] += item is None
+        return result
 
-    def _review(self, current_date):
+    def _review(self, current_date, dry_run=False):
         profiles = Profile.objects.filter(calculator__isnull=False).distinct()
-        created = 0
+        result = self._result()
+        dedupe_key = "course-review-monthly:{:%Y-%m}".format(current_date)
         for profile in profiles.iterator():
             course_ids = Calculator.objects.filter(user=profile).values_list(
                 "course_id", flat=True
@@ -73,13 +105,22 @@ class Command(BaseCommand):
             ).values_list("course_id", flat=True)
             if not course_ids.exclude(course_id__in=reviewed_ids).exists():
                 continue
+            result["eligible"] += 1
+            result["active_devices"] += self._active_device_count(profile)
+            if Notification.objects.filter(user=profile, dedupe_key=dedupe_key).exists():
+                result["deduplicated"] += 1
+                continue
+            if dry_run:
+                result["created"] += 1
+                continue
             item = create_notification(
                 user=profile,
                 notification_type=Notification.Type.COURSE_REVIEW_REMINDER,
                 title="Reminder Course Review",
                 body=COURSE_REVIEW_BODY,
                 target=Notification.Target.COURSE_REVIEW,
-                dedupe_key="course-review-monthly:{:%Y-%m}".format(current_date),
+                dedupe_key=dedupe_key,
             )
-            created += item is not None
-        return created
+            result["created"] += item is not None
+            result["deduplicated"] += item is None
+        return result

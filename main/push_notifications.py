@@ -40,9 +40,18 @@ def unread_count(user):
 def send_push(notification):
     messaging = _firebase_messaging()
     if messaging is None:
+        logger.warning(
+            "Push skipped notification=%s reason=firebase_unavailable",
+            notification.id,
+        )
         return
     devices = list(DeviceToken.objects.filter(user=notification.user, is_active=True))
     if not devices:
+        logger.warning(
+            "Push skipped notification=%s user=%s reason=no_active_device",
+            notification.id,
+            notification.user_id,
+        )
         return
 
     data = {
@@ -93,6 +102,14 @@ def send_push(notification):
         )
     if invalid_ids:
         DeviceToken.objects.filter(id__in=invalid_ids).update(is_active=False)
+    logger.info(
+        "Push completed notification=%s devices=%s success=%s failure=%s invalidated=%s",
+        notification.id,
+        len(devices),
+        result.success_count,
+        result.failure_count,
+        len(invalid_ids),
+    )
 
 
 def create_notification(
@@ -110,7 +127,19 @@ def create_notification(
                 dedupe_key=dedupe_key,
             )
     except IntegrityError:
+        logger.info(
+            "Notification deduplicated user=%s key=%s",
+            user.id,
+            dedupe_key,
+        )
         return None
+    logger.info(
+        "Notification created id=%s user=%s type=%s key=%s",
+        notification.id,
+        user.id,
+        notification_type,
+        dedupe_key,
+    )
     transaction.on_commit(lambda: send_push(notification))
     return notification
 
@@ -119,6 +148,11 @@ def remind_course_review_after_grade_edit(calculator):
     if Review.objects.filter(
         user=calculator.user, course=calculator.course, is_active=True
     ).exists():
+        logger.info(
+            "Course-review reminder skipped user=%s course=%s reason=active_review",
+            calculator.user_id,
+            calculator.course_id,
+        )
         return None
     return create_notification(
         user=calculator.user,
