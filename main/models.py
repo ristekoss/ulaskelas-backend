@@ -324,9 +324,6 @@ class SLCMAutofillSession(models.Model):
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.WAITING_LOGIN
     )
-    popup_token_hash = models.CharField(max_length=64, unique=True)
-    popup_opened_at = models.DateTimeField(null=True, blank=True)
-    popup_url = models.TextField(blank=True)
     source_period = models.CharField(max_length=127, blank=True)
     preview = models.JSONField(default=dict, blank=True)
     error = models.JSONField(null=True, blank=True)
