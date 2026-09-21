@@ -180,65 +180,41 @@ TanyaTeman references; referenced courses are retained for manual remediation.
 
 ### Import the latest SLCM IRS period locally
 
-This proof of concept runs only as a local management command. Install the
-temporary browser used by Playwright:
-
-```bash
-pip install -r requirements-slcm.txt
-python -m playwright install chromium
-```
-
 Run a preview for a local Teman Kuliah profile and calculator semester:
 
 ```bash
 python manage.py import_slcm_irs \
     --username example.username \
     --semester 1 \
-    --irs-url "https://slcm.ui.ac.id/path-to-irs" \
     --dry-run
 ```
 
-The command opens an isolated browser at the supplied SLCM IRS page. Complete
-the SLCM login; no terminal confirmation is needed. After authentication, the
-command previews only the latest academic period that contains courses. Remove
-`--dry-run` to confirm the database import in the same browser session.
+The command asks for the profile owner's SSO password without echoing it, logs
+in to SLCM over HTTP, and previews the current course plan. Remove `--dry-run`
+to confirm the database import.
 Existing calculator courses are skipped, and SLCM codes missing from the local
-catalog are reported. The command does not save SLCM credentials, cookies, page
-HTML, or browser storage. Use `--login-timeout` to override the default
-five-minute login window.
+catalog are reported. Credentials, cookies, and SLCM tokens are kept only for
+the request and are never persisted.
 
 ### SLCM autofill from the frontend
-
-Configure `SLCM_IRS_URL` with the fixed IRS page and expose the remote browser
-using `SLCM_BROWSER_PUBLIC_URL`. The production Compose file includes the
-single-session Chromium/noVNC service used by the login popup.
 
 Create an authenticated session with `POST /api/slcm-autofill/sessions`. The
 `given_semester` JSON field is optional: when omitted, the backend derives the
 student's current semester from their NPM entry year and the current UI academic
-period. Send a value such as `{"given_semester":"1"}` to override it manually.
-Open the returned `popup_url`, poll
+period. Send the profile's temporary SSO credentials with an optional semester:
+
+```json
+{"username":"example.username","password":"...","given_semester":"1"}
+```
+
+The credentials are passed to the background import worker and are not stored.
+Poll
 `GET /api/slcm-autofill/sessions/{session_id}`, display its preview once the
 status is `ready`, and finish with
 `POST /api/slcm-autofill/sessions/{session_id}/confirm`. Cancel an unfinished
 session with `DELETE /api/slcm-autofill/sessions/{session_id}`.
-
-The remote browser defaults to a touch-enabled `430x932` kiosk viewport, so
-Chromium's tabs and address bar do not consume the mobile login area. noVNC
-scales that fixed portrait framebuffer to the available frontend view, including
-when the on-screen keyboard changes its height. Override the framebuffer with
-`SLCM_BROWSER_SCREEN_WIDTH` and `SLCM_BROWSER_SCREEN_HEIGHT` when needed.
-The frontend should keep polling after opening the popup and close its popup or
-browser view when the session becomes `ready`, `failed`, `expired`, or
-`cancelled`; the course preview remains in the regular application UI.
-
-Changes to the Selenium screen environment require recreating the service;
-`docker compose restart` keeps the old container environment. Apply them with:
-
-```bash
-docker compose -f docker-compose-prod.yml up -d \
-  --force-recreate slcm-browser server
-```
+When `preview.warning_stale_data` is true, show the SLCM warning while still
+allowing the user to confirm the import.
 
 
 -------
