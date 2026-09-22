@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.core.management import call_command
+from io import StringIO
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
@@ -78,16 +79,53 @@ class PushNotificationTest(TestCase):
             user=self.profile, course=self.course, academic_year="2025/2026", semester=1,
             content="Reviewed", is_anonym=False,
         )
-        remind_course_review_after_grade_edit(self.calculator)
+        with self.assertLogs("main.push_notifications", level="INFO") as logs:
+            remind_course_review_after_grade_edit(self.calculator)
         self.assertEqual(Notification.objects.count(), 0)
+        self.assertIn("reason=active_review", "\n".join(logs.output))
 
     def test_calculator_command_is_idempotent_per_iso_week(self):
         call_command("send_notification_reminders", type="calculator", date="2026-08-28")
         call_command("send_notification_reminders", type="calculator", date="2026-08-28")
         self.assertEqual(Notification.objects.count(), 1)
 
+    def test_calculator_dry_run_reports_without_writing(self):
+        DeviceToken.objects.create(
+            user=self.profile, token="active-device", platform="android"
+        )
+        stdout = StringIO()
+
+        call_command(
+            "send_notification_reminders",
+            type="calculator",
+            date="2026-08-28",
+            dry_run=True,
+            stdout=stdout,
+        )
+
+        self.assertEqual(Notification.objects.count(), 0)
+        self.assertIn("Dry run: eligible=1, active_devices=1, created=1", stdout.getvalue())
+
     def test_monthly_command_only_runs_on_real_last_day(self):
         call_command("send_notification_reminders", type="review", date="2028-02-28")
         self.assertEqual(Notification.objects.count(), 0)
         call_command("send_notification_reminders", type="review", date="2028-02-29")
         self.assertEqual(Notification.objects.count(), 1)
+
+    def test_diagnose_command_reports_eligibility_without_exposing_token(self):
+        DeviceToken.objects.create(
+            user=self.profile, token="secret-device-token", platform="ios"
+        )
+        stdout = StringIO()
+
+        call_command(
+            "diagnose_push_notifications",
+            username=self.profile.username,
+            stdout=stdout,
+        )
+
+        output = stdout.getvalue()
+        self.assertIn("Calculators: 1", output)
+        self.assertIn("Unreviewed calculator courses: 1", output)
+        self.assertIn("active=1", output)
+        self.assertNotIn("secret-device-token", output)
