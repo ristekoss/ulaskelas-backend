@@ -25,7 +25,6 @@ from .views_notification import (
 from .views_course import CourseViewSet, majors
 from .views_slcm_autofill import (
     slcm_autofill_confirm,
-    slcm_autofill_popup,
     slcm_autofill_session,
     slcm_autofill_sessions,
 )
@@ -50,7 +49,6 @@ urlpatterns = [
     path("slcm-autofill/sessions", slcm_autofill_sessions, name="slcm-autofill-sessions"),
     path("slcm-autofill/sessions/<uuid:session_id>", slcm_autofill_session, name="slcm-autofill-session"),
     path("slcm-autofill/sessions/<uuid:session_id>/confirm", slcm_autofill_confirm, name="slcm-autofill-confirm"),
-    path("slcm-autofill/popup/<str:token>", slcm_autofill_popup, name="slcm-autofill-popup"),
     path(
         "calculator-gpa/<str:given_semester>",
         gpa_calculator_with_semester,

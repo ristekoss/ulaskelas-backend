@@ -1,20 +1,14 @@
-import secrets
 from datetime import timedelta
 
 from django.conf import settings
 from django.db import transaction
-from django.shortcuts import redirect
-from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.decorators import api_view
 
 from main.integrations.slcm_autofill import (
     expire_stale_sessions,
-    hash_popup_token,
     start_scraper,
-    validate_slcm_url,
 )
 from main.integrations.slcm_irs import import_courses
 from main.models import Course, Profile, SLCMAutofillSession
@@ -25,10 +19,6 @@ ACTIVE_STATUSES = [
     SLCMAutofillSession.Status.WAITING_LOGIN,
     SLCMAutofillSession.Status.SCRAPING,
     SLCMAutofillSession.Status.READY,
-]
-BROWSER_STATUSES = [
-    SLCMAutofillSession.Status.WAITING_LOGIN,
-    SLCMAutofillSession.Status.SCRAPING,
 ]
 
 
@@ -52,7 +42,7 @@ def _current_semester(profile, today=None):
     return str(semester) if semester > 0 else None
 
 
-def _serialize(session, include_popup=False):
+def _serialize(session):
     data = {
         "session_id": str(session.id),
         "given_semester": session.given_semester,
@@ -65,14 +55,32 @@ def _serialize(session, include_popup=False):
         } else None,
         "error": session.error,
     }
-    if include_popup:
-        data["popup_url"] = session.popup_url
     return data
 
 
 @api_view(["POST"])
 def slcm_autofill_sessions(request):
     profile = _profile(request)
+    username = request.data.get("username")
+    password = request.data.get("password")
+    if not isinstance(username, str) or not username.strip():
+        return response(
+            error={"code": "INVALID_CREDENTIALS", "message": "username is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if username.strip().casefold() != profile.username.casefold():
+        return response(
+            error={
+                "code": "IDENTITY_MISMATCH",
+                "message": "The SSO username must match the authenticated profile.",
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not isinstance(password, str) or not password:
+        return response(
+            error={"code": "INVALID_CREDENTIALS", "message": "password is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     given_semester = request.data.get("given_semester")
     if given_semester is None:
         given_semester = _current_semester(profile)
@@ -95,14 +103,6 @@ def slcm_autofill_sessions(request):
             error={"code": "INVALID_SEMESTER", "message": "given_semester cannot exceed 20 characters."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-    try:
-        validate_slcm_url()
-    except ValueError as exc:
-        return response(
-            error={"code": "SLCM_NOT_CONFIGURED", "message": str(exc)},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
-
     expire_stale_sessions()
     with transaction.atomic():
         active = SLCMAutofillSession.objects.select_for_update().filter(
@@ -117,29 +117,15 @@ def slcm_autofill_sessions(request):
                 },
                 status=status.HTTP_409_CONFLICT,
             )
-        # The bundled browser exposes one interactive desktop, so serialize sessions globally.
-        global_active = SLCMAutofillSession.objects.select_for_update().filter(
-            status__in=BROWSER_STATUSES
-        ).first()
-        if global_active is not None:
-            return response(
-                error={"code": "BROWSER_BUSY", "message": "The SLCM login browser is currently in use."},
-                status=status.HTTP_409_CONFLICT,
-            )
-        token = secrets.token_urlsafe(32)
         session = SLCMAutofillSession.objects.create(
             user=profile,
             given_semester=given_semester,
-            popup_token_hash=hash_popup_token(token),
             expires_at=timezone.now() + timedelta(seconds=settings.SLCM_AUTOFILL_TIMEOUT_SECONDS),
         )
-        popup_path = reverse("v1:slcm-autofill-popup", kwargs={"token": token})
-        session.popup_url = request.build_absolute_uri(popup_path).replace(
-            "http://", "https://", 1
+        transaction.on_commit(
+            lambda: start_scraper(session.id, username.strip(), password)
         )
-        session.save(update_fields=["popup_url", "updated_at"])
-        transaction.on_commit(lambda: start_scraper(session.id))
-    return response(data=_serialize(session, include_popup=True), status=status.HTTP_201_CREATED)
+    return response(data=_serialize(session), status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET", "DELETE"])
@@ -194,28 +180,3 @@ def slcm_autofill_confirm(request, session_id):
         "duplicates": len(result["duplicates"]),
     }
     return response(data=data)
-
-
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def slcm_autofill_popup(request, token):
-    token_hash = hash_popup_token(token)
-    with transaction.atomic():
-        session = SLCMAutofillSession.objects.select_for_update().filter(
-            popup_token_hash=token_hash,
-            popup_opened_at__isnull=True,
-            status=SLCMAutofillSession.Status.WAITING_LOGIN,
-            expires_at__gt=timezone.now(),
-        ).first()
-        if session is None:
-            return response(
-                error={"code": "INVALID_POPUP_TOKEN", "message": "Popup token is invalid or expired."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        session.popup_opened_at = timezone.now()
-        session.save(update_fields=["popup_opened_at", "updated_at"])
-    target = (
-        settings.SLCM_BROWSER_PUBLIC_URL.rstrip("/")
-        + "/?autoconnect=1&resize=scale&show_dot=true"
-    )
-    return redirect(target)
